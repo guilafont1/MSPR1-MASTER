@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dashboard MSPR{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <span class="brand-icon">MSPR</span>
+            <span class="brand-text">Dashboard</span>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('index') }}" class="nav-item {% if request.endpoint == 'index' %}active{% endif %}">
+                <span class="nav-icon">⌂</span>
+                <span>Accueil</span>
+            </a>
+            <a href="{{ url_for('evaluations') }}" class="nav-item {% if request.endpoint == 'evaluations' %}active{% endif %}">
+                <span class="nav-icon">✓</span>
+                <span>Évaluations</span>
+            </a>
+            <a href="{{ url_for('grilles') }}" class="nav-item {% if request.endpoint == 'grilles' %}active{% endif %}">
+                <span class="nav-icon">▦</span>
+                <span>Grilles</span>
+            </a>
+            <a href="{{ url_for('regles') }}" class="nav-item {% if request.endpoint == 'regles' %}active{% endif %}">
+                <span class="nav-icon">◇</span>
+                <span>Règles</span>
+            </a>
+            <a href="{{ url_for('sujets') }}" class="nav-item {% if request.endpoint == 'sujets' %}active{% endif %}">
+                <span class="nav-icon">📄</span>
+                <span>Sujets</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <span class="version">v1.0</span>
+        </div>
+    </aside>
+    <main class="main">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

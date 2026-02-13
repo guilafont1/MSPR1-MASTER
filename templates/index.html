@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Accueil — Dashboard MSPR{% endblock %}
+{% block content %}
+<h1 class="page-title">Accueil</h1>
+<p class="page-desc">Tableau de bord MSPR — accès rapide aux évaluations, grilles, règles et sujets.</p>
+
+<div class="cards">
+    <div class="card">
+        <h2 class="card-title">Évaluations</h2>
+        <p class="card-desc">Grille d’évaluation individuelle par le Coach MSPR.</p>
+        <a href="{{ url_for('evaluations') }}" class="card-link">Voir →</a>
+    </div>
+    <div class="card">
+        <h2 class="card-title">Grilles</h2>
+        <p class="card-desc">Grilles MSPR (Bloc 3, I1 EISI).</p>
+        <a href="{{ url_for('grilles') }}" class="card-link">Voir →</a>
+    </div>
+    <div class="card">
+        <h2 class="card-title">Règles</h2>
+        <p class="card-desc">Règles de validation MSPR.</p>
+        <a href="{{ url_for('regles') }}" class="card-link">Voir →</a>
+    </div>
+    <div class="card">
+        <h2 class="card-title">Sujets</h2>
+        <p class="card-desc">Sujets MSPR (Bloc 3, I1 EISI).</p>
+        <a href="{{ url_for('sujets') }}" class="card-link">Voir →</a>
+    </div>
+</div>
+{% endblock %}
