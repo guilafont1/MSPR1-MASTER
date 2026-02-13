@@ -23,13 +23,11 @@ Ouvrir [http://localhost:5000](http://localhost:5000).
 
 ```bash
 docker build -t mspr-dashboard .
-docker run --rm -d -p 5000:5000 mspr-dashboard
-echo "Dashboard : http://localhost:5000"
+docker run --rm -d -p 5001:5000 mspr-dashboard
+echo "Dashboard : http://localhost:5001"
 ```
 
 Le conteneur tourne en arrière-plan. Pour l’arrêter : `docker stop $(docker ps -q --filter ancestor=mspr-dashboard)`.
-
-**Port 5000 déjà utilisé ?** Utilisez le port 5001 : `-p 5001:5000` puis `echo "Dashboard : http://localhost:5001"`.
 
 Ou avec Docker Compose :
 
@@ -37,7 +35,7 @@ Ou avec Docker Compose :
 docker compose up --build
 ```
 
-Puis [http://localhost:5000](http://localhost:5000).
+Puis [http://localhost:5001](http://localhost:5001).
 
 ## Structure
 
