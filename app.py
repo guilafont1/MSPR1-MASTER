@@ -351,6 +351,25 @@ def model_metrics():
         mse_test = float(((y_test - y_pred_test) ** 2).mean())
         rmse_test = float(mse_test ** 0.5)
         mae_test = float(abs(y_test - y_pred_test).mean())
+        residuals_test = (y_test - y_pred_test).astype(float)
+        residuals_test_pts = residuals_test * 100.0  # conversion en "points" (0..1 => 0..100)
+
+        # Histogramme compact pour visualisation front (Chart.js)
+        # - bins fixes pour rester stable visuellement
+        # - en cas de résidus constants (variance nulle), on garde un range minimal
+        bins = 20
+        res_min = float(np.min(residuals_test_pts)) if len(residuals_test_pts) else -1.0
+        res_max = float(np.max(residuals_test_pts)) if len(residuals_test_pts) else 1.0
+        if res_min == res_max:
+            res_min -= 1e-6
+            res_max += 1e-6
+        hist_counts, hist_edges = np.histogram(residuals_test_pts, bins=bins, range=(res_min, res_max))
+        residual_hist = {
+            "bins": bins,
+            "bin_edges_pts": hist_edges.tolist(),
+            "counts": hist_counts.astype(int).tolist(),
+            "range_pts": [res_min, res_max],
+        }
         y_test_mean = float(y_test.mean())
         ss_tot_test = float(((y_test - y_test_mean) ** 2).sum())
         ss_res_test = float(((y_test - y_pred_test) ** 2).sum())
@@ -369,6 +388,9 @@ def model_metrics():
                     "mse": round(mse_test, 6),
                     "rmse": round(rmse_test, 6),
                     "mae": round(mae_test, 6),
+                },
+                "diagnostics": {
+                    "residual_hist_test_2022": residual_hist,
                 },
             }
         ), 200
@@ -565,6 +587,116 @@ def kpi_top_evolution():
             if r[1] is not None
         ]
         return jsonify({"status": "ok", "top": top}), 200
+    except mysql.connector.Error as exc:
+        return jsonify({"status": "error", "message": f"Erreur DB: {exc.msg}"}), 500
+
+
+@app.route("/api/kpi_dashboard_overview", methods=["GET"])
+def kpi_dashboard_overview():
+    """
+    KPIs de synthèse (cartes du haut) basés sur dataset_ml :
+    - KPI 1 : score RN moyen (2022) + variation vs 2002
+    - KPI 2 : évolution moyenne 2017 -> 2022 (par commune)
+    - KPI 3 : part des communes en hausse 2017 -> 2022
+    - KPI 4 : plus forte progression communale 2017 -> 2022
+    """
+    db_config = get_db_config()
+    required_keys = {"host", "user", "password", "database"}
+    missing = [k for k, v in db_config.items() if k in required_keys and not v]
+    if missing:
+        return jsonify({"status": "error", "message": f"Variables manquantes: {', '.join(missing)}"}), 500
+
+    try:
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
+
+        # KPI 1 : score moyen par année
+        cursor.execute(
+            """
+            SELECT annee, AVG(score_rn) AS score_moyen
+            FROM dataset_ml
+            WHERE annee IN (2002, 2007, 2012, 2017, 2022)
+            GROUP BY annee
+            ORDER BY annee
+            """
+        )
+        rows_years = cursor.fetchall()
+        years_avg = {int(r[0]): float(r[1]) for r in rows_years if r[0] is not None and r[1] is not None}
+
+        # KPI 2/3/4 : évolution communale 2017 -> 2022
+        cursor.execute(
+            """
+            SELECT codgeo, annee, score_rn
+            FROM dataset_ml
+            WHERE annee IN (2017, 2022)
+            """
+        )
+        rows_evo = cursor.fetchall()
+
+        cursor.close()
+        connection.close()
+
+        if not rows_evo:
+            return jsonify({"status": "error", "message": "dataset_ml vide pour 2017/2022"}), 500
+
+        df = pd.DataFrame(rows_evo, columns=["codgeo", "annee", "score_rn"])
+        wide = df.pivot_table(index="codgeo", columns="annee", values="score_rn", aggfunc="first")
+        if 2017 not in wide.columns or 2022 not in wide.columns:
+            return jsonify({"status": "error", "message": "Années 2017/2022 manquantes dans dataset_ml"}), 500
+        wide = wide.dropna(subset=[2017, 2022]).copy()
+        if wide.empty:
+            return jsonify({"status": "error", "message": "Aucune commune exploitable pour 2017/2022"}), 500
+
+        wide["evolution"] = wide[2022] - wide[2017]
+        n_total = int(len(wide))
+        n_up = int((wide["evolution"] > 0).sum())
+        pct_up = float((n_up / n_total) * 100.0) if n_total > 0 else 0.0
+        avg_evolution = float(wide["evolution"].mean())
+
+        best_codgeo = str(wide["evolution"].idxmax())
+        best_evolution = float(wide["evolution"].max())
+
+        # Récupère le nom de la commune top progression
+        best_commune = best_codgeo
+        try:
+            connection = mysql.connector.connect(**db_config)
+            cursor = connection.cursor()
+            cursor.execute("SELECT nom_commune FROM dim_commune WHERE codgeo = %s LIMIT 1", (best_codgeo,))
+            row = cursor.fetchone()
+            if row and row[0]:
+                best_commune = str(row[0])
+            cursor.close()
+            connection.close()
+        except mysql.connector.Error:
+            # Non bloquant : on garde le codgeo si le nom n'est pas trouvable
+            pass
+
+        score_2022 = float(years_avg.get(2022, np.nan))
+        score_2002 = float(years_avg.get(2002, np.nan))
+        delta_2002_2022 = float(score_2022 - score_2002) if np.isfinite(score_2022) and np.isfinite(score_2002) else np.nan
+
+        return jsonify(
+            {
+                "status": "ok",
+                "kpis": {
+                    "score_rn_moyen": {
+                        "annee_reference": 2022,
+                        "valeur": None if not np.isfinite(score_2022) else round(score_2022, 6),
+                        "delta_vs_2002": None if not np.isfinite(delta_2002_2022) else round(delta_2002_2022, 6),
+                    },
+                    "evolution_moyenne_2017_2022": round(avg_evolution, 6),
+                    "communes_en_hausse_2017_2022": {
+                        "count": n_up,
+                        "total": n_total,
+                        "pct": round(pct_up, 4),
+                    },
+                    "plus_forte_progression_2017_2022": {
+                        "nom_commune": best_commune,
+                        "evolution": round(best_evolution, 6),
+                    },
+                },
+            }
+        ), 200
     except mysql.connector.Error as exc:
         return jsonify({"status": "error", "message": f"Erreur DB: {exc.msg}"}), 500
 

@@ -122,6 +122,9 @@
       gap: 1.5rem;
       margin-bottom: 1.5rem;
     }
+    .row-split.dashboard-main {
+      grid-template-columns: 1fr 1fr;
+    }
 
     /* ── KPI STRIP ── */
     .kpi-strip {
@@ -147,7 +150,13 @@
 
     /* ── MAP ── */
     .card-map { min-height: 360px; }
+    .row-split.dashboard-main .card-map { min-height: auto; }
     .leaflet-map { height: 300px; border-radius: 4px; overflow: hidden; }
+    .row-split.dashboard-main .leaflet-map {
+      height: 300px;
+      min-height: 0;
+      aspect-ratio: auto;
+    }
 
     /* ── GAUGE ── */
     .gauge-strip {
@@ -331,15 +340,25 @@
       color: var(--warn); margin-bottom: 1.5rem;
     }
 
-    /* ── MAP TOOLTIP ── */
-    .leaflet-tooltip.map-tooltip {
+    /* ── MAP POPUP (affichée au clic) ── */
+    .leaflet-popup.map-popup .leaflet-popup-content-wrapper {
       background: rgba(17,19,24,0.92) !important;
       border: 1px solid rgba(0,229,255,0.3) !important;
       color: #cdd6e0 !important;
-      font-size: 11px !important;
       box-shadow: none !important;
+      padding: 8px 10px !important;
     }
-    .leaflet-tooltip.map-tooltip::before { border-top-color: rgba(0,229,255,0.3) !important; }
+    .leaflet-popup.map-popup .leaflet-popup-content {
+      margin: 0 !important;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px !important;
+    }
+    .leaflet-popup.map-popup .leaflet-popup-tip {
+      background: rgba(17,19,24,0.92) !important;
+    }
+    .leaflet-popup.map-popup .leaflet-popup-tip:before {
+      border-top-color: rgba(0,229,255,0.3) !important;
+    }
   </style>
 </head>
 <body>
@@ -385,87 +404,51 @@
         ⚠ Toutes les visualisations sont exclusivement dérivées du modèle chargé (linear_regression_model.joblib). Aucune donnée externe inventée.
       </div>
 
-      <!-- KPI STRIP — uniquement données du modèle réel -->
+      <!-- KPI STRIP — synthèse nationale dataset_ml -->
       <div class="kpi-strip">
         <div class="kpi-card accent">
-          <div class="kpi-label mono">R² test (80/20)</div>
-          <div class="kpi-value" id="kpi-r2">…</div>
-          <div class="kpi-trend neutral">coefficient de détermination</div>
+          <div class="kpi-label mono">Score RN moyen (2022)</div>
+          <div class="kpi-value" id="kpi-score-mean">…</div>
+          <div class="kpi-trend neutral" id="kpi-score-mean-trend">variation vs 2002</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label mono">RMSE</div>
-          <div class="kpi-value" id="kpi-rmse">…</div>
-          <div class="kpi-trend neutral">erreur quadratique moyenne</div>
+          <div class="kpi-label mono">Évolution moyenne (2017 → 2022)</div>
+          <div class="kpi-value" id="kpi-evo-mean">…</div>
+          <div class="kpi-trend neutral" id="kpi-evo-mean-trend">moyenne par commune</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label mono">MAE</div>
-          <div class="kpi-value" id="kpi-mae">…</div>
-          <div class="kpi-trend neutral">erreur absolue moyenne</div>
+          <div class="kpi-label mono">Communes en hausse (2017 → 2022)</div>
+          <div class="kpi-value" id="kpi-communes-up">…</div>
+          <div class="kpi-trend neutral" id="kpi-communes-up-trend">part des communes en progression</div>
         </div>
         <div class="kpi-card accent-warm">
-          <div class="kpi-label mono">N échantillons</div>
-          <div class="kpi-value" id="kpi-n">…</div>
-          <div class="kpi-trend info">communes avec 2012/2017/2022</div>
+          <div class="kpi-label mono">Plus forte progression (2017 → 2022)</div>
+          <div class="kpi-value" id="kpi-best-evo">…</div>
+          <div class="kpi-trend info" id="kpi-best-evo-trend">commune leader</div>
         </div>
       </div>
 
       <!-- MAP + description -->
-      <div class="row-split">
+      <div class="row-split dashboard-main">
         <div class="card card-map">
           <div class="card-header">
             <span class="mono card-tag">CARTE INTERACTIVE</span>
             <span class="card-title">Zone géographique : France entière</span>
           </div>
           <div id="franceMap" class="leaflet-map"></div>
-          <div class="top-evolution-block" style="margin-top:1rem">
-            <div class="mono" style="color:var(--muted);font-size:0.75rem;margin-bottom:0.5rem">
-              KPI 2 — Top 10 évolutions (2022 − 2017)
-            </div>
-            <div id="topEvolutionBars"></div>
-          </div>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <span class="mono card-tag">MODÈLE</span>
-            <span class="card-title">MODÈLE — KPIs (DB)</span>
+            <span class="card-title">Communes avec la plus forte progression RN (2017 → 2022)</span>
           </div>
-          <div style="display:flex;gap:0.8rem;align-items:center;padding:0 1rem 0.75rem 1rem;margin-top:-0.25rem">
-            <button class="predict-btn" id="btnModelKpi" type="button">KPIs</button>
-            <button class="predict-btn" id="btnModelCoeff" type="button" style="opacity:0.6;background:var(--surface2);border:1px solid var(--border);color:var(--text)">Coefficients</button>
+          <div class="mono" style="color:var(--muted);font-size:0.72rem;padding:0 1rem 0.5rem 1rem">
+            Classement national — variation en points entre 2017 et 2022
           </div>
-          <table class="model-table">
-            <thead>
-              <tr>
-                <th>Paramètre</th>
-                <th>Type</th>
-                <th>Valeur</th>
-                <th>Interprétation</th>
-              </tr>
-            </thead>
-            <tbody id="modelTableBody"></tbody>
-          </table>
-
-          <div style="margin-top:1.5rem">
-            <div class="card-header" style="border-bottom:none;padding-bottom:0;margin-bottom:0.5rem">
-              <span class="mono card-tag">ÉQUATION</span>
-            </div>
-            <div class="eq-block">
-              <div class="eq-formula" id="dashEquation"></div>
-              <div class="eq-note mono" id="dashEqNote"></div>
-            </div>
-          </div>
+          <div id="topEvolutionBarsRight" style="padding:0 0.5rem 0.25rem 0.5rem"></div>
         </div>
       </div>
 
-      <!-- Courbe ŷ = f(score_2017) pour 3 deltas -->
-      <div class="card card-full">
-        <div class="card-header">
-          <span class="mono card-tag">COURBE MODÈLE</span>
-          <span class="card-title">ŷ = f(score 2017) pour différentes valeurs de Δ — données calculées depuis le modèle</span>
-        </div>
-        <canvas id="chartModelCurves" height="90"></canvas>
-      </div>
     </section>
 
     <!-- ══════════════════════════ VUE 2 · MOTEUR PRÉDICTIF ══════════════════════════ -->
@@ -534,7 +517,6 @@
       <div class="row-split">
         <div class="card">
           <div class="card-header">
-            <span class="mono card-tag">KPI 1 — SCORE RN MOYEN</span>
             <span class="card-title">Évolution temporelle (moyenne score_rn par année)</span>
           </div>
           <canvas id="chartSensitivity" height="180"></canvas>
@@ -758,7 +740,7 @@
   });
 
   // ── LEAFLET MAP ───────────────────────────────────────────────────────────
-  const map = L.map('franceMap', { center: [46.5, 2.5], zoom: 5, scrollWheelZoom: false });
+  const map = L.map('franceMap', { center: [46.5, 2.5], zoom: 5, scrollWheelZoom: false, attributionControl: false });
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OSM &copy; CARTO', subdomains: 'abcd', maxZoom: 19,
   }).addTo(map);
@@ -771,9 +753,9 @@
       iconSize: [size, size], iconAnchor: [size/2, size/2],
     });
     const marker = L.marker([lat, lng], { icon })
-      .bindTooltip(
+      .bindPopup(
         `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px">${name}</span>`,
-        { permanent: true, direction: 'top', offset: [0, -8], className: 'map-tooltip' }
+        { closeButton: false, autoPan: false, offset: [0, -8], className: 'map-popup' }
       )
       .addTo(map);
     return marker;
@@ -868,10 +850,8 @@
             <div style="color:var(--muted)">2012 : ${(c.score_2012*100).toFixed(1)}%</div>
             <div style="color:var(--muted)">2017 : ${(c.score_2017*100).toFixed(1)}%</div>
             <div style="color:var(--muted)">2022 : ${(c.score_2022*100).toFixed(1)}%</div>
-            <div style="color:var(--ok)">ŷ 2027 : ${(c.prediction_2027*100).toFixed(1)}%</div>
-            <div style="color:var(--warn)">Δ : ${(c.delta*100).toFixed(1)} pts</div>
           </div>`;
-        marker.getTooltip()?.setContent(tooltipHtml);
+        marker.getPopup()?.setContent(tooltipHtml);
       });
 
       renderCitiesTrendChart(cities);
@@ -881,8 +861,9 @@
   }
 
   async function initKpiTopEvolutionBars() {
-    const container = document.getElementById('topEvolutionBars');
-    if (!container) return;
+    const containerRight = document.getElementById('topEvolutionBarsRight');
+    const targets = [containerRight].filter(Boolean);
+    if (targets.length === 0) return;
     try {
       const res = await fetch('/api/kpi_top_evolution', { method: 'GET' });
       const payload = await res.json();
@@ -891,7 +872,7 @@
       const top = payload.top;
       const maxAbs = Math.max(...top.map(t => Math.abs(t.evolution)), 0.000001);
 
-      container.innerHTML = top.map((t, idx) => {
+      const html = top.map((t, idx) => {
         const deltaPts = t.evolution * 100;
         const pct = (Math.abs(t.evolution) / maxAbs) * 100;
         const barColor = deltaPts >= 0 ? P.ok : P.warn;
@@ -913,104 +894,72 @@
           </div>
         `;
       }).join('');
+      targets.forEach(target => { target.innerHTML = html; });
     } catch (e) {
-      container.textContent = 'Données indisponibles.';
+      targets.forEach(target => { target.textContent = 'Données indisponibles.'; });
     }
   }
 
   map.setMaxBounds([[41.3, -5.5], [51.2, 10.0]]);
 
-  // ── INIT KPIs + TABLE + EQUATION ──────────────────────────────────────────
+  // ── INIT KPIs (cartes de synthèse) ────────────────────────────────────────
   function initDashboard() {
-    const tbody = document.getElementById('modelTableBody');
-    if (!tbody) return;
-
-    const renderRows = (rows) => rows.map(([name, type, val, interp]) => {
-      const tagClass = type === 'intercept' ? 'tag-intercept' : 'tag-feature';
-      const valNum = typeof val === 'number' ? val : parseFloat(String(val));
-      const valClass = (isFinite(valNum) && valNum < 0) ? 'val-neg' : 'val-pos';
-      return `<tr>
-        <td>${name}</td>
-        <td><span class="${tagClass}">${type}</span></td>
-        <td class="${valClass}">${val}</td>
-        <td style="font-size:0.7rem;color:var(--muted)">${interp}</td>
-      </tr>`;
-    }).join('');
-
-    const coefRows = [
-      ['β₀ (intercept)', 'intercept', MODEL.intercept.toFixed(6), 'Score de base (score_2017 = 0, Δ = 0)'],
-      ['β₁ (score_2017)', 'feature', MODEL.coef_2017.toFixed(6), 'Poids de la tendance 2017 → 2022'],
-      ['β₂ (delta)', 'feature', MODEL.coef_delta.toFixed(6), 'Ajustement Δ = (2017 − 2012)'],
-    ];
-
-    // Par défaut : KPIs uniquement (plus lisible en soutenance)
-    let kpiRowsResolved = null;
-    let activeMode = 'kpi';
-    tbody.innerHTML = `<tr><td colspan="4" style="color:var(--muted);font-size:0.75rem">Chargement KPIs modèle…</td></tr>`;
-
-    function setMode(mode) {
-      activeMode = mode;
-      if (mode === 'coeff') {
-        tbody.innerHTML = renderRows(coefRows);
-        return;
-      }
-      if (mode === 'kpi' && Array.isArray(kpiRowsResolved)) {
-        tbody.innerHTML = renderRows(kpiRowsResolved);
-      }
-    }
-
-    const btnKpi = document.getElementById('btnModelKpi');
-    const btnCoeff = document.getElementById('btnModelCoeff');
-    btnKpi?.addEventListener('click', () => setMode('kpi'));
-    btnCoeff?.addEventListener('click', () => setMode('coeff'));
-
-    // Equation
-    const sign = MODEL.coef_delta >= 0 ? '+' : '−';
-    document.getElementById('dashEquation').innerHTML = `
-      <span class="eq-hat">ŷ</span>
-      <span class="eq-op">=</span>
-      <span class="eq-val accent">${MODEL.intercept.toFixed(5)}</span>
-      <span class="eq-op">+</span>
-      <span class="eq-val ok">${MODEL.coef_2017.toFixed(5)}</span>
-      <span class="eq-var">× score<sub>2017</sub></span>
-      <span class="eq-op">${sign}</span>
-      <span class="eq-val warn">${Math.abs(MODEL.coef_delta).toFixed(5)}</span>
-      <span class="eq-var">× Δ</span>
-    `;
-    document.getElementById('dashEqNote').textContent = 'ŷ ∈ [0 ; 1] — proportion de votes prédite';
-
-    // ── KPI MODELE (issus de dataset_ml) ───────────────────────────────────
-    fetch('/api/model_metrics', { method: 'GET' })
+    fetch('/api/kpi_dashboard_overview', { method: 'GET' })
       .then(async res => {
         const payload = await res.json();
-        if (!payload || payload.status !== 'ok' || !payload.metrics) return;
-        const m = payload.metrics;
+        if (!payload || payload.status !== 'ok' || !payload.kpis) return;
+        const k = payload.kpis;
 
-        const r2El = document.getElementById('kpi-r2');
-        const rmseEl = document.getElementById('kpi-rmse');
-        const maeEl = document.getElementById('kpi-mae');
-        const nEl = document.getElementById('kpi-n');
+        const scoreEl = document.getElementById('kpi-score-mean');
+        const scoreTrendEl = document.getElementById('kpi-score-mean-trend');
+        const evoMeanEl = document.getElementById('kpi-evo-mean');
+        const evoMeanTrendEl = document.getElementById('kpi-evo-mean-trend');
+        const upEl = document.getElementById('kpi-communes-up');
+        const upTrendEl = document.getElementById('kpi-communes-up-trend');
+        const bestEl = document.getElementById('kpi-best-evo');
+        const bestTrendEl = document.getElementById('kpi-best-evo-trend');
 
-        const rmsePp = (typeof m.rmse === 'number') ? (m.rmse * 100) : 0;
-        const maePp = (typeof m.mae === 'number') ? (m.mae * 100) : 0;
+        const score2022 = k.score_rn_moyen?.valeur;
+        const scoreDelta = k.score_rn_moyen?.delta_vs_2002;
+        if (scoreEl && typeof score2022 === 'number' && isFinite(score2022)) {
+          scoreEl.textContent = `${(score2022 * 100).toFixed(2)}%`;
+        }
+        if (scoreTrendEl && typeof scoreDelta === 'number' && isFinite(scoreDelta)) {
+          const sign = scoreDelta >= 0 ? '+' : '';
+          scoreTrendEl.textContent = `${sign}${(scoreDelta * 100).toFixed(2)} pts vs 2002`;
+        }
 
-        if (r2El && typeof m.r2 === 'number') r2El.textContent = m.r2.toFixed(4);
-        if (rmseEl && typeof rmsePp === 'number' && isFinite(rmsePp)) rmseEl.textContent = rmsePp.toFixed(2) + ' pts';
-        if (maeEl && typeof maePp === 'number' && isFinite(maePp)) maeEl.textContent = maePp.toFixed(2) + ' pts';
-        if (nEl && typeof m.n_samples === 'number') nEl.textContent = String(m.n_samples);
+        const evoMean = k.evolution_moyenne_2017_2022;
+        if (evoMeanEl && typeof evoMean === 'number' && isFinite(evoMean)) {
+          const sign = evoMean >= 0 ? '+' : '';
+          evoMeanEl.textContent = `${sign}${(evoMean * 100).toFixed(2)} pts`;
+        }
+        if (evoMeanTrendEl && k.communes_en_hausse_2017_2022?.total) {
+          evoMeanTrendEl.textContent = `moyenne sur ${k.communes_en_hausse_2017_2022.total} communes`;
+        }
 
-        kpiRowsResolved = [
-          ['R² test (2022)', 'metric', m.r2.toFixed(4), `train_test_split 80/20 — X=[2017,δ], y=2022 (R² full=${(m.r2_full ?? m.r2).toFixed(4)})`],
-          ['RMSE (2022)', 'metric', m.rmse.toFixed(4), `≈ ${rmsePp.toFixed(2)} pts (score_rn)`],
-          ['MAE (2022)', 'metric', m.mae.toFixed(4), `≈ ${maePp.toFixed(2)} pts (score_rn)`],
-          ['N communes', 'metric', String(m.n_samples), 'dropna sur 2002/2007/2012/2017/2022 (cohérent Colab)'],
-        ];
+        const upPct = k.communes_en_hausse_2017_2022?.pct;
+        const upCount = k.communes_en_hausse_2017_2022?.count;
+        const upTotal = k.communes_en_hausse_2017_2022?.total;
+        if (upEl && typeof upPct === 'number' && isFinite(upPct)) {
+          upEl.textContent = `${upPct.toFixed(1)}%`;
+        }
+        if (upTrendEl && Number.isFinite(upCount) && Number.isFinite(upTotal)) {
+          upTrendEl.textContent = `${upCount} / ${upTotal} communes`;
+        }
 
-        if (activeMode === 'kpi') setMode('kpi');
+        const bestEvolution = k.plus_forte_progression_2017_2022?.evolution;
+        const bestCommune = k.plus_forte_progression_2017_2022?.nom_commune;
+        if (bestEl && typeof bestEvolution === 'number' && isFinite(bestEvolution)) {
+          const sign = bestEvolution >= 0 ? '+' : '';
+          bestEl.textContent = `${sign}${(bestEvolution * 100).toFixed(2)} pts`;
+        }
+        if (bestTrendEl && bestCommune) {
+          bestTrendEl.textContent = String(bestCommune);
+        }
       })
       .catch(() => {
-        // En cas d’erreur, on affiche au moins les coefficients.
-        setMode('coeff');
+        // En cas d'erreur, les placeholders restent affichés.
       });
   }
 
@@ -1064,45 +1013,6 @@
           Delta atténue légèrement : β₂ = ${MODEL.coef_delta.toFixed(4)} (variation défavorable → score prédit légèrement inférieur).
         </div>
       </div>`;
-  }
-
-  // ── CHART: Courbes modèle (dashboard + detail) ────────────────────────────
-  function makeModelCurvesChart(canvasId) {
-    const labels = MODEL.curve_labels.map(v => `${(v*100).toFixed(0)}%`);
-    const colors = [P.blue, P.accent, P.ok];
-    const datasets = Object.entries(MODEL.curves).map(([name, data], i) => ({
-      label: name,
-      data: data.map(v => parseFloat((v*100).toFixed(2))),
-      borderColor: colors[i],
-      backgroundColor: 'transparent',
-      borderWidth: i === 1 ? 2.5 : 1.8,
-      borderDash: i === 1 ? [] : [i === 0 ? 4 : 6, 3],
-      tension: 0.3, pointRadius: 0,
-    }));
-    // Add identity line
-    datasets.push({
-      label: 'Identité (ŷ = score 2017)',
-      data: MODEL.curve_labels.map(v => parseFloat((v*100).toFixed(2))),
-      borderColor: 'rgba(255,255,255,0.15)',
-      backgroundColor: 'transparent',
-      borderWidth: 1, borderDash: [3, 3], tension: 0, pointRadius: 0,
-    });
-    return new Chart(document.getElementById(canvasId), {
-      type: 'line',
-      data: { labels, datasets },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { display: true, position: 'top', labels: { boxWidth: 12, usePointStyle: true } },
-          tooltip: { mode: 'index', intersect: false,
-            callbacks: { label: ctx => ` ${ctx.dataset.label} : ${ctx.raw.toFixed(1)}%` } }
-        },
-        scales: {
-          x: { grid: { color: P.grid }, title: { display: true, text: 'Score 2017 (%)' } },
-          y: { grid: { color: P.grid }, ticks: { callback: v => v+'%' }, title: { display: true, text: 'Score prédit ŷ (%)' } }
-        }
-      }
-    });
   }
 
   // ── CHART: Sensibilité ────────────────────────────────────────────────────
@@ -1425,7 +1335,6 @@
   initDashboard();
   initGauges();
   initEquationBlock();
-  makeModelCurvesChart('chartModelCurves');
   initSensitivity();
   initFeatureImportance();
   initCoefShare();
