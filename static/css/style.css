@@ -946,3 +946,219 @@ body { display: flex; min-height: 100vh; }
 .expand-card-clone .rgpd-banner {
   margin-top: 1.5rem;
 }
+
+/* ─── PREDICTION FORM ────────────────────────────────────────── */
+.predict-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  align-items: flex-end;
+  padding: 1rem 0 0.5rem;
+}
+
+.predict-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1 1 180px;
+}
+
+.predict-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.predict-input {
+  background: var(--bg-base);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem;
+  padding: 0.55rem 0.8rem;
+  outline: none;
+  transition: border-color var(--transition);
+  width: 100%;
+}
+
+.predict-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.predict-hint {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+}
+
+.predict-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #090c10;
+  cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.6rem 1.4rem;
+  transition: opacity var(--transition), transform var(--transition);
+  white-space: nowrap;
+  align-self: flex-end;
+}
+
+.predict-btn:hover  { opacity: 0.85; transform: translateY(-1px); }
+.predict-btn:active { transform: translateY(0); }
+.predict-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.predict-result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 1.2rem;
+  padding: 1rem 1.2rem;
+  background: rgba(0,229,255,0.05);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-sm);
+  animation: fadeIn 0.3s ease;
+}
+
+.predict-result-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.predict-result-value {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.predict-formula {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+  word-break: break-all;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── MODEL EQUATION BLOCK ───────────────────────────────────── */
+.eq-block {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem 1rem;
+  height: 100%;
+  justify-content: center;
+}
+
+.eq-title {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.eq-formula {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1.05rem;
+  line-height: 1.8;
+}
+
+.eq-hat  { font-size: 1.3rem; font-weight: 700; color: var(--text-primary); }
+.eq-op   { color: var(--text-muted); font-size: 1rem; }
+.eq-val  { font-weight: 700; font-size: 1.1rem; }
+.eq-val.accent { color: var(--accent); }
+.eq-val.ok     { color: var(--ok); }
+.eq-val.warn   { color: var(--warm); }
+.eq-var  { font-size: 0.85rem; color: var(--text-primary); }
+.eq-var sub { font-size: 0.7rem; }
+
+.eq-legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 0.8rem;
+}
+
+.eq-note {
+  font-size: 0.62rem;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+
+.confusion-matrix {
+  display: flex;
+  flex: 1;
+  min-height: 180px;
+}
+
+/* ─── LEAFLET MAP ─────────────────────────────────────────────── */
+.leaflet-map {
+  width: 100%;
+  height: 320px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-base);
+  overflow: hidden;
+}
+
+/* Fond de la carte déjà sombre via les tuiles, on neutralise le fond blanc */
+.leaflet-container {
+  background: #0a0e14 !important;
+}
+
+/* Tooltips permanents style dark */
+.map-tooltip {
+  background: rgba(9, 12, 16, 0.85) !important;
+  border: 1px solid rgba(0, 229, 255, 0.3) !important;
+  border-radius: 4px !important;
+  color: #e8edf2 !important;
+  padding: 2px 7px !important;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
+}
+
+.map-tooltip::before {
+  display: none !important;
+}
+
+/* Attribution discrète */
+.leaflet-control-attribution {
+  background: rgba(9,12,16,0.7) !important;
+  color: #3a4d5e !important;
+  font-size: 9px !important;
+}
+
+.leaflet-control-attribution a {
+  color: #3a4d5e !important;
+}
+
+/* Zoom control style dark */
+.leaflet-control-zoom a {
+  background: var(--bg-card) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: var(--bg-card-alt) !important;
+  color: var(--text-primary) !important;
+}

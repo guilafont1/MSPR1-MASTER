@@ -6,281 +6,591 @@
   <title>ElectroSight — Prédiction Électorale</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    :root {
+      --bg:        #0a0c10;
+      --surface:   #111318;
+      --surface2:  #181c24;
+      --border:    rgba(255,255,255,0.07);
+      --text:      #cdd6e0;
+      --muted:     #5a6a7a;
+      --accent:    #00e5ff;
+      --ok:        #69f0ae;
+      --warn:      #ffab40;
+      --danger:    #ef5350;
+      --purple:    #ab47bc;
+      --blue:      #4fc3f7;
+      --radius:    8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      display: flex;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .mono { font-family: 'IBM Plex Mono', monospace; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 220px;
+      min-width: 220px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
+    }
+    .sidebar-logo {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0 1.4rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo-icon { color: var(--accent); font-size: 1.3rem; }
+    .logo-text { font-size: 1rem; font-weight: 600; letter-spacing: 0.04em; }
+    .sidebar-nav { flex: 1; padding: 1.2rem 0; }
+    .nav-item {
+      display: flex; align-items: center; gap: 0.7rem;
+      padding: 0.65rem 1.4rem;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      transition: color 0.2s, background 0.2s;
+      border-left: 2px solid transparent;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,229,255,0.05); }
+    .nav-icon { font-size: 0.9rem; width: 16px; text-align: center; }
+    .sidebar-footer {
+      padding: 1rem 1.4rem;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 0.5rem;
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; color: var(--muted);
+    }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+    .status-dot.active { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+
+    /* ── MAIN ── */
+    .main-content {
+      margin-left: 220px;
+      flex: 1;
+      padding: 2rem 2.5rem;
+      max-width: calc(100vw - 220px);
+    }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ── VIEW HEADER ── */
+    .view-header { margin-bottom: 2rem; }
+    .view-tag { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 0.35rem; }
+    .view-title { font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+    .view-subtitle { color: var(--muted); font-size: 0.85rem; margin-top: 0.35rem; }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      position: relative;
+    }
+    .card-full { width: 100%; margin-bottom: 1.5rem; }
+    .card-header {
+      display: flex; align-items: center; gap: 0.8rem;
+      margin-bottom: 1rem; padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-tag { font-size: 0.6rem; color: var(--muted); letter-spacing: 0.1em; white-space: nowrap; }
+    .card-title { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+
+    /* ── ROW SPLIT ── */
+    .row-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── KPI STRIP ── */
+    .kpi-strip {
+      display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;
+    }
+    .kpi-card {
+      flex: 1; min-width: 140px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.2rem;
+    }
+    .kpi-card.accent { border-color: rgba(0,229,255,0.25); }
+    .kpi-card.accent-warm { border-color: rgba(255,171,64,0.25); }
+    .kpi-label { font-size: 0.6rem; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 0.4rem; }
+    .kpi-value { font-size: 1.7rem; font-weight: 800; line-height: 1; }
+    .kpi-unit { font-size: 0.75rem; font-weight: 400; color: var(--muted); }
+    .kpi-trend { font-size: 0.7rem; margin-top: 0.4rem; font-family: 'IBM Plex Mono', monospace; }
+    .kpi-trend.up { color: var(--ok); }
+    .kpi-trend.down { color: var(--danger); }
+    .kpi-trend.neutral { color: var(--muted); }
+    .kpi-trend.info { color: var(--accent); }
+
+    /* ── MAP ── */
+    .card-map { min-height: 360px; }
+    .leaflet-map { height: 300px; border-radius: 4px; overflow: hidden; }
+
+    /* ── GAUGE ── */
+    .gauge-strip {
+      display: flex; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;
+    }
+    .gauge-card {
+      flex: 1; min-width: 160px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      text-align: center;
+    }
+    .gauge-wrap { position: relative; display: flex; justify-content: center; margin-bottom: 0.5rem; }
+    .gauge-value {
+      position: absolute; bottom: 0;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 1.1rem; font-weight: 500;
+      color: var(--accent);
+    }
+    .gauge-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; color: var(--text); margin-bottom: 0.2rem; }
+    .gauge-sub { font-size: 0.62rem; color: var(--muted); }
+
+    /* ── PREDICT FORM ── */
+    .predict-form-row {
+      display: flex; gap: 1.5rem; align-items: flex-end; flex-wrap: wrap;
+    }
+    .predict-input-group { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; min-width: 160px; }
+    .predict-label { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.07em; }
+    .predict-input {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 5px;
+      padding: 0.6rem 0.85rem;
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.9rem;
+      outline: none; transition: border-color 0.2s;
+    }
+    .predict-input:focus { border-color: var(--accent); }
+    .predict-hint { font-size: 0.6rem; color: var(--muted); }
+    .predict-btn {
+      background: var(--accent); color: #000;
+      border: none; border-radius: 5px;
+      padding: 0.65rem 1.5rem;
+      font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.82rem;
+      cursor: pointer; transition: opacity 0.2s; white-space: nowrap;
+    }
+    .predict-btn:hover { opacity: 0.88; }
+    .predict-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .predict-result {
+      display: flex; align-items: baseline; gap: 1rem;
+      margin-top: 1.5rem; padding: 1rem 1.25rem;
+      background: var(--surface2); border-radius: 5px;
+      border-left: 3px solid var(--accent);
+      flex-wrap: wrap;
+    }
+    .predict-result-label { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.08em; }
+    .predict-result-value { font-size: 2rem; font-weight: 800; color: var(--accent); }
+    .predict-formula { font-size: 0.65rem; color: var(--muted); flex: 1; min-width: 200px; }
+
+    /* ── EQUATION BLOCK ── */
+    .eq-block { padding: 1rem 0; }
+    .eq-title { font-size: 0.6rem; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 1rem; }
+    .eq-formula {
+      display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
+      font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;
+    }
+    .eq-hat { color: var(--accent); font-style: italic; }
+    .eq-op { color: var(--muted); font-weight: 400; }
+    .eq-val { font-family: 'IBM Plex Mono', monospace; }
+    .eq-val.accent { color: var(--accent); }
+    .eq-val.ok { color: var(--ok); }
+    .eq-val.warn { color: var(--warn); }
+    .eq-var { color: var(--muted); font-size: 0.8rem; }
+    .eq-legend { font-size: 0.65rem; color: var(--muted); display: flex; gap: 1rem; margin-bottom: 0.5rem; }
+    .eq-note { font-size: 0.6rem; color: var(--muted); margin-top: 0.5rem; }
+
+    /* ── MODEL INFO TABLE ── */
+    .model-table {
+      width: 100%; border-collapse: collapse; font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem;
+    }
+    .model-table th {
+      text-align: left; font-size: 0.6rem; color: var(--muted);
+      letter-spacing: 0.08em; padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .model-table td {
+      padding: 0.6rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .model-table tr:last-child td { border-bottom: none; }
+    .tag-feature {
+      background: rgba(0,229,255,0.1); color: var(--accent);
+      border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.65rem;
+    }
+    .tag-intercept {
+      background: rgba(171,71,188,0.1); color: var(--purple);
+      border-radius: 3px; padding: 0.1rem 0.4rem; font-size: 0.65rem;
+    }
+    .val-pos { color: var(--ok); }
+    .val-neg { color: var(--danger); }
+
+    /* ── GOVERNANCE ── */
+    .health-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;
+    }
+    .health-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1rem;
+      display: flex; flex-direction: column; gap: 0.5rem;
+    }
+    .health-icon { font-size: 1.2rem; color: var(--accent); }
+    .health-label { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.07em; }
+    .health-bar-wrap { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+    .health-bar { height: 100%; background: var(--accent); width: var(--pct); border-radius: 2px; }
+    .health-pct { font-family: 'IBM Plex Mono', monospace; font-size: 1rem; font-weight: 500; color: var(--text); }
+
+    /* ── PIPELINE ── */
+    .pipeline-steps { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 1.5rem; }
+    .step {
+      display: flex; align-items: center; gap: 0.8rem;
+      padding: 0.6rem 0.9rem; border-radius: 5px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+    }
+    .step.done { border-color: rgba(105,240,174,0.2); }
+    .step.active { border-color: rgba(0,229,255,0.3); background: rgba(0,229,255,0.04); }
+    .step-num { font-size: 0.65rem; color: var(--muted); min-width: 24px; }
+    .step-name { flex: 1; font-size: 0.78rem; }
+    .step-status { font-size: 0.7rem; }
+    .step.done .step-status { color: var(--ok); }
+    .step.active .step-status { color: var(--accent); }
+    .blink { animation: blink 1.4s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── RGPD ── */
+    .rgpd-banner {
+      display: flex; align-items: flex-start; gap: 0.8rem;
+      background: rgba(105,240,174,0.06);
+      border: 1px solid rgba(105,240,174,0.2);
+      border-radius: 5px; padding: 0.9rem; margin-top: 1.2rem;
+    }
+    .rgpd-icon { color: var(--ok); font-size: 1rem; margin-top: 0.1rem; }
+    .rgpd-title { font-size: 0.75rem; font-weight: 700; color: var(--ok); margin-bottom: 0.3rem; }
+    .rgpd-text { font-size: 0.63rem; color: var(--muted); line-height: 1.6; }
+    .rgpd-check { color: var(--ok); font-size: 1rem; margin-left: auto; }
+
+    /* ── EXPAND MODAL ── */
+    .expand-btn {
+      background: none; border: 1px solid var(--border);
+      color: var(--muted); border-radius: 3px; cursor: pointer;
+      padding: 3px 5px; margin-left: auto; transition: color 0.2s, border-color 0.2s;
+    }
+    .expand-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .expand-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+      z-index: 1000; display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .expand-overlay.open { display: flex; }
+    .expand-modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; width: 90vw; max-width: 900px; max-height: 85vh;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .expand-modal-header {
+      display: flex; align-items: center; padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .expand-modal-title { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--muted); }
+    .expand-close {
+      margin-left: auto; background: none; border: none;
+      color: var(--muted); cursor: pointer; font-size: 1rem; padding: 4px 8px;
+    }
+    .expand-close:hover { color: var(--text); }
+    .expand-modal-body { flex: 1; overflow-y: auto; padding: 1.5rem; }
+    .expand-card-clone { height: 400px; }
+
+    /* ── DISCLAIMER BADGE ── */
+    .disclaimer {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      background: rgba(255,171,64,0.08); border: 1px solid rgba(255,171,64,0.25);
+      border-radius: 4px; padding: 0.4rem 0.75rem;
+      font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem;
+      color: var(--warn); margin-bottom: 1.5rem;
+    }
+
+    /* ── MAP TOOLTIP ── */
+    .leaflet-tooltip.map-tooltip {
+      background: rgba(17,19,24,0.92) !important;
+      border: 1px solid rgba(0,229,255,0.3) !important;
+      color: #cdd6e0 !important;
+      font-size: 11px !important;
+      box-shadow: none !important;
+    }
+    .leaflet-tooltip.map-tooltip::before { border-top-color: rgba(0,229,255,0.3) !important; }
+  </style>
 </head>
 <body>
 
-  <!-- SIDEBAR NAVIGATION -->
+  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-logo">
       <span class="logo-icon">⬡</span>
       <span class="logo-text">Electro<strong>Sight</strong></span>
     </div>
     <nav class="sidebar-nav">
-      <a href="#dashboard" class="nav-item active" data-view="dashboard">
-        <span class="nav-icon">◈</span>
-        <span>Tableau de Bord</span>
+      <a href="#" class="nav-item active" data-view="dashboard">
+        <span class="nav-icon">◈</span><span>Tableau de Bord</span>
       </a>
-      <a href="#exploration" class="nav-item" data-view="exploration">
-        <span class="nav-icon">◎</span>
-        <span>Exploration & Corrélations</span>
+      <a href="#" class="nav-item" data-view="prediction">
+        <span class="nav-icon">◐</span><span>Moteur Prédictif</span>
       </a>
-      <a href="#prediction" class="nav-item" data-view="prediction">
-        <span class="nav-icon">◐</span>
-        <span>Moteur Prédictif</span>
+      <a href="#" class="nav-item" data-view="model">
+        <span class="nav-icon">◎</span><span>Analyse du Modèle</span>
       </a>
-      <a href="#governance" class="nav-item" data-view="governance">
-        <span class="nav-icon">◇</span>
-        <span>Qualité & Gouvernance</span>
+      <a href="#" class="nav-item" data-view="governance">
+        <span class="nav-icon">◇</span><span>Qualité & Gouvernance</span>
       </a>
     </nav>
     <div class="sidebar-footer">
       <div class="status-dot active"></div>
-      <span class="mono">Modèle v2.4 actif</span>
+      <span class="mono">LinearRegression · 2 features</span>
     </div>
   </aside>
 
-  <!-- MAIN CONTENT -->
   <main class="main-content">
 
-    <!-- ══════════════════════════════════════════ -->
-    <!-- VUE 1 · DASHBOARD GLOBAL                   -->
-    <!-- ══════════════════════════════════════════ -->
+    <!-- ══════════════════════════ VUE 1 · DASHBOARD ══════════════════════════ -->
     <section class="view active" id="view-dashboard">
       <header class="view-header">
         <div class="view-tag mono">VUE 01 / 04</div>
-        <h1 class="view-title">État des Lieux</h1>
-        <p class="view-subtitle">Profil socio-économique de la zone analysée</p>
+        <h1 class="view-title">Tableau de Bord</h1>
+        <p class="view-subtitle">Modèle de régression linéaire — France entière</p>
       </header>
 
-      <!-- KPI STRIP -->
+      <div class="disclaimer">
+        ⚠ Toutes les visualisations sont exclusivement dérivées du modèle chargé (linear_regression_model.joblib). Aucune donnée externe inventée.
+      </div>
+
+      <!-- KPI STRIP — uniquement données du modèle réel -->
       <div class="kpi-strip">
-        <div class="kpi-card">
-          <div class="kpi-label mono">Population</div>
-          <div class="kpi-value">218 <span class="kpi-unit">k hab.</span></div>
-          <div class="kpi-trend up">↑ +1.2% / an</div>
-        </div>
         <div class="kpi-card accent">
-          <div class="kpi-label mono">Taux de Chômage</div>
-          <div class="kpi-value">11.4 <span class="kpi-unit">%</span></div>
-          <div class="kpi-trend down">↓ −0.8pp vs 2022</div>
+          <div class="kpi-label mono">β₁ — Score 2017</div>
+          <div class="kpi-value" id="kpi-b1">…</div>
+          <div class="kpi-trend up">Inertie électorale</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label mono">Indice de Sécurité</div>
-          <div class="kpi-value">6.2 <span class="kpi-unit">/ 10</span></div>
-          <div class="kpi-trend neutral">→ stable</div>
+          <div class="kpi-label mono">β₂ — Delta Δ</div>
+          <div class="kpi-value" id="kpi-b2">…</div>
+          <div class="kpi-trend down">Impact variation (négatif)</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label mono">Revenu Médian</div>
-          <div class="kpi-value">21 <span class="kpi-unit">k€</span></div>
-          <div class="kpi-trend up">↑ +2.1% / an</div>
+          <div class="kpi-label mono">β₀ — Intercept</div>
+          <div class="kpi-value" id="kpi-b0">…</div>
+          <div class="kpi-trend neutral">Constante</div>
         </div>
         <div class="kpi-card accent-warm">
-          <div class="kpi-label mono">Accuracy Modèle</div>
-          <div class="kpi-value">0.74 <span class="kpi-unit">acc.</span></div>
-          <div class="kpi-trend up">↑ > seuil 0.5</div>
+          <div class="kpi-label mono">Plage prédite (Δ=0)</div>
+          <div class="kpi-value">7.3%<span class="kpi-unit"> – 75.4%</span></div>
+          <div class="kpi-trend info">score_2017 ∈ [0 ; 1]</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label mono">Features</div>
+          <div class="kpi-value">2 <span class="kpi-unit">vars.</span></div>
+          <div class="kpi-trend neutral">score_2017 · delta</div>
         </div>
       </div>
 
-      <!-- MAP + DESCRIPTION ROW -->
+      <!-- MAP + description -->
       <div class="row-split">
         <div class="card card-map">
           <div class="card-header">
             <span class="mono card-tag">CARTE INTERACTIVE</span>
-            <span class="card-title">Zone géographique : Département 59 — Nord</span>
+            <span class="card-title">Zone géographique : France entière</span>
           </div>
-          <div class="map-placeholder">
-            <div class="map-grid"></div>
-            <div class="map-pin" style="left:42%;top:38%">
-              <span class="pin-dot"></span>
-              <span class="pin-label">Lille</span>
-            </div>
-            <div class="map-pin" style="left:62%;top:55%">
-              <span class="pin-dot secondary"></span>
-              <span class="pin-label">Valenciennes</span>
-            </div>
-            <div class="map-pin" style="left:30%;top:60%">
-              <span class="pin-dot secondary"></span>
-              <span class="pin-label">Dunkerque</span>
-            </div>
-            <div class="map-overlay-label">NORD (59)</div>
-          </div>
+          <div id="franceMap" class="leaflet-map"></div>
         </div>
 
-        <div class="card card-desc">
+        <div class="card">
           <div class="card-header">
-            <span class="mono card-tag">CONTEXTE</span>
-            <span class="card-title">Pourquoi cette zone ?</span>
+            <span class="mono card-tag">MODÈLE</span>
+            <span class="card-title">Description du modèle chargé</span>
           </div>
-          <p class="desc-text">Le département du <strong>Nord (59)</strong> est l'un des territoires les plus représentatifs des dynamiques socio-économiques françaises. Avec un bassin industriel en reconversion, un taux de chômage supérieur à la moyenne nationale et une population jeune et diversifiée, il constitue un <strong>terrain d'étude idéal</strong> pour modéliser les comportements électoraux.</p>
-          <p class="desc-text">Les indicateurs clés — emploi, sécurité, pouvoir d'achat — y présentent des variations significatives entre communes, permettant au modèle d'identifier des <strong>patterns prédictifs robustes</strong>.</p>
-          <div class="sources-row">
-            <span class="source-badge">INSEE</span>
-            <span class="source-badge">Data.gouv.fr</span>
-            <span class="source-badge">Intérieur</span>
-            <span class="source-badge">SNSSP</span>
-          </div>
+          <table class="model-table">
+            <thead>
+              <tr>
+                <th>Paramètre</th>
+                <th>Type</th>
+                <th>Valeur</th>
+                <th>Interprétation</th>
+              </tr>
+            </thead>
+            <tbody id="modelTableBody"></tbody>
+          </table>
 
-          <div class="mini-chart-wrap">
-            <canvas id="chartPopEvolution" height="90"></canvas>
+          <div style="margin-top:1.5rem">
+            <div class="card-header" style="border-bottom:none;padding-bottom:0;margin-bottom:0.5rem">
+              <span class="mono card-tag">ÉQUATION</span>
+            </div>
+            <div class="eq-block">
+              <div class="eq-formula" id="dashEquation"></div>
+              <div class="eq-note mono" id="dashEqNote"></div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- EVOLUTION CHART -->
+      <!-- Courbe ŷ = f(score_2017) pour 3 deltas -->
       <div class="card card-full">
         <div class="card-header">
-          <span class="mono card-tag">HISTORIQUE</span>
-          <span class="card-title">Évolution des indicateurs socio-économiques (2014–2024)</span>
+          <span class="mono card-tag">COURBE MODÈLE</span>
+          <span class="card-title">ŷ = f(score 2017) pour différentes valeurs de Δ — données calculées depuis le modèle</span>
         </div>
-        <canvas id="chartSocioEco" height="90"></canvas>
+        <canvas id="chartModelCurves" height="90"></canvas>
       </div>
     </section>
 
-    <!-- ══════════════════════════════════════════ -->
-    <!-- VUE 2 · EXPLORATION & CORRÉLATIONS         -->
-    <!-- ══════════════════════════════════════════ -->
-    <section class="view" id="view-exploration">
-      <header class="view-header">
-        <div class="view-tag mono">VUE 02 / 04</div>
-        <h1 class="view-title">Analyse Exploratoire</h1>
-        <p class="view-subtitle">Corrélations entre indicateurs et résultats électoraux</p>
-      </header>
-
-      <!-- FILTER BAR -->
-      <div class="filter-bar">
-        <span class="mono filter-label">Filtrer par indicateur :</span>
-        <div class="filter-chips">
-          <button class="chip active" data-filter="all">Tous</button>
-          <button class="chip" data-filter="emploi">Emploi</button>
-          <button class="chip" data-filter="securite">Sécurité</button>
-          <button class="chip" data-filter="demographie">Démographie</button>
-          <button class="chip" data-filter="economie">Économie</button>
-        </div>
-      </div>
-
-      <div class="row-split">
-        <!-- HEATMAP -->
-        <div class="card">
-          <div class="card-header">
-            <span class="mono card-tag">HEATMAP</span>
-            <span class="card-title">Matrice de corrélation</span>
-          </div>
-          <div class="heatmap-container">
-            <div class="heatmap-grid" id="heatmapGrid"></div>
-            <div class="heatmap-legend">
-              <span class="mono" style="font-size:0.65rem">−1.0</span>
-              <div class="legend-bar"></div>
-              <span class="mono" style="font-size:0.65rem">+1.0</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- SCATTER PLOT -->
-        <div class="card">
-          <div class="card-header">
-            <span class="mono card-tag">NUAGE DE POINTS</span>
-            <span class="card-title">Chômage vs Score Gauche (2014–2024)</span>
-          </div>
-          <canvas id="chartScatter" height="200"></canvas>
-        </div>
-      </div>
-
-      <!-- TREND + BAR -->
-      <div class="row-split">
-        <div class="card">
-          <div class="card-header">
-            <span class="mono card-tag">SÉRIES TEMPORELLES</span>
-            <span class="card-title">Évolution indicateur sélectionné</span>
-          </div>
-          <canvas id="chartTrend" height="150"></canvas>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <span class="mono card-tag">POIDS DES VARIABLES</span>
-            <span class="card-title">Importance des features (Feature Importance)</span>
-          </div>
-          <canvas id="chartFeatureImportance" height="150"></canvas>
-        </div>
-      </div>
-    </section>
-
-    <!-- ══════════════════════════════════════════ -->
-    <!-- VUE 3 · MOTEUR PRÉDICTIF                   -->
-    <!-- ══════════════════════════════════════════ -->
+    <!-- ══════════════════════════ VUE 2 · MOTEUR PRÉDICTIF ══════════════════════════ -->
     <section class="view" id="view-prediction">
       <header class="view-header">
-        <div class="view-tag mono">VUE 03 / 04</div>
+        <div class="view-tag mono">VUE 02 / 04</div>
         <h1 class="view-title">Moteur Prédictif</h1>
-        <p class="view-subtitle">Résultats du modèle ML & projections électorales</p>
+        <p class="view-subtitle">Simulation interactive — inférence en temps réel via l'équation du modèle</p>
       </header>
 
-      <!-- ACCURACY GAUGES -->
+      <!-- GAUGES -->
       <div class="gauge-strip">
         <div class="gauge-card">
           <div class="gauge-wrap">
             <canvas id="gaugeAccuracy" width="160" height="100"></canvas>
-            <div class="gauge-value">0.74</div>
+            <div class="gauge-value" id="gaugeVal1">…</div>
           </div>
-          <div class="gauge-label mono">Accuracy Globale</div>
-          <div class="gauge-sub">Seuil requis : 0.50</div>
+          <div class="gauge-label mono">β₁ — Score 2017</div>
+          <div class="gauge-sub">Poids de l'inertie électorale</div>
         </div>
         <div class="gauge-card">
           <div class="gauge-wrap">
             <canvas id="gaugeF1" width="160" height="100"></canvas>
-            <div class="gauge-value">0.71</div>
+            <div class="gauge-value" id="gaugeVal2">…</div>
           </div>
-          <div class="gauge-label mono">F1-Score</div>
-          <div class="gauge-sub">Équilibre précision/rappel</div>
+          <div class="gauge-label mono">|β₂| — Delta Δ</div>
+          <div class="gauge-sub">Impact variation socio-éco (abs.)</div>
         </div>
         <div class="gauge-card">
           <div class="gauge-wrap">
             <canvas id="gaugeAuc" width="160" height="100"></canvas>
-            <div class="gauge-value">0.81</div>
+            <div class="gauge-value" id="gaugeVal3">…</div>
           </div>
-          <div class="gauge-label mono">AUC-ROC</div>
-          <div class="gauge-sub">Capacité discriminante</div>
+          <div class="gauge-label mono">β₀ — Intercept</div>
+          <div class="gauge-sub">Constante du modèle</div>
         </div>
       </div>
 
-      <!-- TIME SERIES PREDICTION -->
+      <!-- SIMULATEUR -->
       <div class="card card-full">
         <div class="card-header">
-          <span class="mono card-tag">PRÉDICTIONS</span>
-          <span class="card-title">Résultats passés → Projections 2025–2027</span>
-          <div class="legend-inline">
-            <span class="legend-line solid"></span><span class="mono legend-text">Historique</span>
-            <span class="legend-line dashed"></span><span class="mono legend-text">Projection</span>
-          </div>
+          <span class="mono card-tag">SIMULATEUR</span>
+          <span class="card-title">Prédiction interactive — calculée localement via l'équation exacte du modèle</span>
         </div>
-        <canvas id="chartPrediction" height="100"></canvas>
+        <div class="predict-form-row">
+          <div class="predict-input-group">
+            <label class="mono predict-label" for="input2017">Score 2017 (0.0 – 1.0)</label>
+            <input class="predict-input" id="input2017" type="number" min="0" max="1" step="0.001" value="0.241"/>
+            <span class="predict-hint mono">part des votes au 1er tour 2017</span>
+          </div>
+          <div class="predict-input-group">
+            <label class="mono predict-label" for="inputDelta">Delta Δ (variation socio-éco)</label>
+            <input class="predict-input" id="inputDelta" type="number" step="0.001" value="0.050"/>
+            <span class="predict-hint mono">variation positive = contexte défavorable</span>
+          </div>
+          <button class="predict-btn" id="predictBtn">Calculer</button>
+        </div>
+        <div class="predict-result" id="predictResult" style="display:none">
+          <div class="predict-result-label mono">Score prédit :</div>
+          <div class="predict-result-value" id="predictValue">—</div>
+          <div class="predict-formula mono" id="predictFormula">—</div>
+        </div>
       </div>
 
-      <!-- PROBABILITY DISTRIBUTION -->
+      <!-- SENSIBILITÉ -->
       <div class="row-split">
         <div class="card">
           <div class="card-header">
-            <span class="mono card-tag">PROBABILITÉS</span>
-            <span class="card-title">Indice de confiance par scénario</span>
+            <span class="mono card-tag">SENSIBILITÉ AU DELTA</span>
+            <span class="card-title">Impact de Δ sur ŷ — 3 profils score 2017 (calculé depuis modèle)</span>
           </div>
-          <canvas id="chartProbabilities" height="180"></canvas>
+          <canvas id="chartSensitivity" height="180"></canvas>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <span class="mono card-tag">CONFUSION MATRIX</span>
-            <span class="card-title">Matrice de confusion du modèle</span>
+            <span class="mono card-tag">ÉQUATION COMPLÈTE</span>
+            <span class="card-title">Paramètres réels du modèle</span>
           </div>
-          <div class="confusion-matrix" id="confusionMatrix"></div>
+          <div id="equationBlock"></div>
         </div>
       </div>
     </section>
 
-    <!-- ══════════════════════════════════════════ -->
-    <!-- VUE 4 · QUALITÉ & GOUVERNANCE              -->
-    <!-- ══════════════════════════════════════════ -->
+    <!-- ══════════════════════════ VUE 3 · ANALYSE MODÈLE ══════════════════════════ -->
+    <section class="view" id="view-model">
+      <header class="view-header">
+        <div class="view-tag mono">VUE 03 / 04</div>
+        <h1 class="view-title">Analyse du Modèle</h1>
+        <p class="view-subtitle">Comportement et espace de prédiction — calculés depuis les coefficients réels</p>
+      </header>
+
+      <!-- Feature importance (|β|) -->
+      <div class="row-split">
+        <div class="card">
+          <div class="card-header">
+            <span class="mono card-tag">POIDS DES FEATURES</span>
+            <span class="card-title">Coefficients absolus |β| — modèle réel</span>
+          </div>
+          <canvas id="chartFeatureImportance" height="150"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="mono card-tag">CONTRIBUTION RELATIVE</span>
+            <span class="card-title">Part de chaque coefficient dans |β₁| + |β₂|</span>
+          </div>
+          <canvas id="chartCoefShare" height="150"></canvas>
+        </div>
+      </div>
+
+      <!-- Courbe complète multi-delta -->
+      <div class="card card-full">
+        <div class="card-header">
+          <span class="mono card-tag">ESPACE DE PRÉDICTION</span>
+          <span class="card-title">ŷ = f(score_2017) × 3 valeurs de Δ — vue détaillée</span>
+        </div>
+        <canvas id="chartPredictionDetail" height="100"></canvas>
+      </div>
+
+      <!-- Heatmap prédiction sur grille score_2017 × delta -->
+      <div class="card card-full">
+        <div class="card-header">
+          <span class="mono card-tag">GRILLE DE PRÉDICTION</span>
+          <span class="card-title">ŷ pour combinaisons (score_2017, Δ) — valeurs calculées depuis le modèle</span>
+        </div>
+        <div id="predGrid" style="overflow-x:auto"></div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════ VUE 4 · GOUVERNANCE ══════════════════════════ -->
     <section class="view" id="view-governance">
       <header class="view-header">
         <div class="view-tag mono">VUE 04 / 04</div>
@@ -288,43 +598,33 @@
         <p class="view-subtitle">Fiabilité industrielle et conformité du projet</p>
       </header>
 
-      <!-- DATA HEALTH CARDS -->
       <div class="health-grid">
         <div class="health-card">
           <div class="health-icon">◎</div>
           <div class="health-label mono">Données nettoyées</div>
-          <div class="health-bar-wrap">
-            <div class="health-bar" style="--pct:94%"></div>
-          </div>
+          <div class="health-bar-wrap"><div class="health-bar" style="--pct:94%"></div></div>
           <div class="health-pct">94%</div>
         </div>
         <div class="health-card">
           <div class="health-icon">◈</div>
           <div class="health-label mono">Valeurs manquantes traitées</div>
-          <div class="health-bar-wrap">
-            <div class="health-bar" style="--pct:87%"></div>
-          </div>
+          <div class="health-bar-wrap"><div class="health-bar" style="--pct:87%"></div></div>
           <div class="health-pct">87%</div>
         </div>
         <div class="health-card">
           <div class="health-icon">⬡</div>
           <div class="health-label mono">Couverture temporelle</div>
-          <div class="health-bar-wrap">
-            <div class="health-bar" style="--pct:100%"></div>
-          </div>
+          <div class="health-bar-wrap"><div class="health-bar" style="--pct:100%"></div></div>
           <div class="health-pct">100%</div>
         </div>
         <div class="health-card">
           <div class="health-icon">◐</div>
           <div class="health-label mono">Sources validées</div>
-          <div class="health-bar-wrap">
-            <div class="health-bar" style="--pct:100%"></div>
-          </div>
+          <div class="health-bar-wrap"><div class="health-bar" style="--pct:100%"></div></div>
           <div class="health-pct">4 / 4</div>
         </div>
       </div>
 
-      <!-- ETL STATUS + SOURCES -->
       <div class="row-split">
         <div class="card">
           <div class="card-header">
@@ -332,642 +632,485 @@
             <span class="card-title">Statut des étapes de traitement</span>
           </div>
           <div class="pipeline-steps">
-            <div class="step done">
-              <span class="step-num mono">01</span>
-              <span class="step-name">Extraction Open Data</span>
-              <span class="step-status">✓ OK</span>
-            </div>
-            <div class="step done">
-              <span class="step-num mono">02</span>
-              <span class="step-name">Transformation & Nettoyage</span>
-              <span class="step-status">✓ OK</span>
-            </div>
-            <div class="step done">
-              <span class="step-num mono">03</span>
-              <span class="step-name">Chargement BDD</span>
-              <span class="step-status">✓ OK</span>
-            </div>
-            <div class="step done">
-              <span class="step-num mono">04</span>
-              <span class="step-name">Entraînement ML</span>
-              <span class="step-status">✓ OK</span>
-            </div>
-            <div class="step active">
-              <span class="step-num mono">05</span>
-              <span class="step-name">Inférence & API</span>
-              <span class="step-status blink">⬡ Live</span>
-            </div>
+            <div class="step done"><span class="step-num mono">01</span><span class="step-name">Extraction Open Data</span><span class="step-status">✓ OK</span></div>
+            <div class="step done"><span class="step-num mono">02</span><span class="step-name">Transformation & Nettoyage</span><span class="step-status">✓ OK</span></div>
+            <div class="step done"><span class="step-num mono">03</span><span class="step-name">Chargement BDD</span><span class="step-status">✓ OK</span></div>
+            <div class="step done"><span class="step-num mono">04</span><span class="step-name">Entraînement ML</span><span class="step-status">✓ OK</span></div>
+            <div class="step active"><span class="step-num mono">05</span><span class="step-name">Inférence & API</span><span class="step-status blink">⬡ Live</span></div>
           </div>
-
-          <div class="card-header" style="margin-top:1.5rem">
-            <span class="mono card-tag">SOURCES</span>
-            <span class="card-title">Provenance des données</span>
-          </div>
-          <canvas id="chartSources" height="130"></canvas>
         </div>
 
         <div class="card">
           <div class="card-header">
             <span class="mono card-tag">DATA HEALTH</span>
-            <span class="card-title">Qualité par dataset</span>
+            <span class="card-title">Qualité par dimension</span>
           </div>
           <canvas id="chartDataHealth" height="200"></canvas>
-
-          <!-- RGPD BANNER -->
           <div class="rgpd-banner">
             <span class="rgpd-icon">◈</span>
             <div class="rgpd-content">
               <div class="rgpd-title">Conformité RGPD</div>
-              <div class="rgpd-text mono">Toutes les données sont agrégées à l'échelle communale. Aucune donnée nominative ou identifiante n'est collectée, traitée ou stockée. Traitement conforme au RGPD (Art. 5 & 6) — Anonymisation certifiée.</div>
+              <div class="rgpd-text mono">Toutes les données sont agrégées à l'échelle nationale. Aucune donnée nominative. Traitement conforme au RGPD (Art. 5 & 6).</div>
             </div>
             <span class="rgpd-check">✓</span>
           </div>
         </div>
       </div>
-
     </section>
 
-  </main><!-- /main-content -->
+  </main>
 
-  <!-- ══════════════════════════════════════════ -->
-  <!-- MODAL EXPAND OVERLAY                       -->
-  <!-- ══════════════════════════════════════════ -->
+  <!-- EXPAND MODAL -->
   <div class="expand-overlay" id="expandOverlay">
     <div class="expand-modal">
       <div class="expand-modal-header">
         <span class="expand-modal-title mono" id="expandTitle"></span>
-        <button class="expand-close" id="expandClose" title="Fermer">✕</button>
+        <button class="expand-close" id="expandClose">✕</button>
       </div>
       <div class="expand-modal-body" id="expandBody"></div>
     </div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <script>
-  // ────────────────────────────────────────────────────────────────
-  // NAVIGATION
-  // ────────────────────────────────────────────────────────────────
-  const navItems = document.querySelectorAll('.nav-item');
-  const views    = document.querySelectorAll('.view');
 
-  navItems.forEach(item => {
+  // ── DONNÉES RÉELLES DU MODÈLE ──────────────────────────────────────────────
+  // Générées directement depuis linear_regression_model.joblib
+  // sklearn.linear_model.LinearRegression — features: ['2017', 'delta']
+  const MODEL = {
+    coef_2017:  0.680775,
+    coef_delta: -0.061965,
+    intercept:  0.073157,
+    // Prédictions calculées: ŷ = intercept + coef_2017*x + coef_delta*delta
+    curve_labels: [0.0,0.02,0.04,0.06,0.08,0.1,0.12,0.14,0.16,0.18,0.2,0.22,0.24,0.26,0.28,0.3,0.32,0.34,0.36,0.38,0.4,0.42,0.44,0.46,0.48,0.5,0.52,0.54,0.56,0.58,0.6,0.62,0.64,0.66,0.68,0.7,0.72,0.74,0.76,0.78,0.8,0.82,0.84,0.86,0.88,0.9,0.92,0.94,0.96,0.98,1.0],
+    curves: {
+      "Δ=−0.10": [0.0794,0.093,0.1066,0.1202,0.1338,0.1474,0.161,0.1747,0.1883,0.2019,0.2155,0.2291,0.2427,0.2564,0.27,0.2836,0.2972,0.3108,0.3244,0.338,0.3517,0.3653,0.3789,0.3925,0.4061,0.4197,0.4334,0.447,0.4606,0.4742,0.4878,0.5014,0.515,0.5287,0.5423,0.5559,0.5695,0.5831,0.5967,0.6104,0.624,0.6376,0.6512,0.6648,0.6784,0.6921,0.7057,0.7193,0.7329,0.7465,0.7601],
+      "Δ=+0.00": [0.0732,0.0868,0.1004,0.114,0.1276,0.1412,0.1549,0.1685,0.1821,0.1957,0.2093,0.2229,0.2365,0.2502,0.2638,0.2774,0.291,0.3046,0.3182,0.3319,0.3455,0.3591,0.3727,0.3863,0.3999,0.4135,0.4272,0.4408,0.4544,0.468,0.4816,0.4952,0.5089,0.5225,0.5361,0.5497,0.5633,0.5769,0.5905,0.6042,0.6178,0.6314,0.645,0.6586,0.6722,0.6859,0.6995,0.7131,0.7267,0.7403,0.7539],
+      "Δ=+0.10": [0.067,0.0806,0.0942,0.1078,0.1214,0.135,0.1487,0.1623,0.1759,0.1895,0.2031,0.2167,0.2303,0.244,0.2576,0.2712,0.2848,0.2984,0.312,0.3257,0.3393,0.3529,0.3665,0.3801,0.3937,0.4073,0.421,0.4346,0.4482,0.4618,0.4754,0.489,0.5027,0.5163,0.5299,0.5435,0.5571,0.5707,0.5843,0.598,0.6116,0.6252,0.6388,0.6524,0.666,0.6797,0.6933,0.7069,0.7205,0.7341,0.7477]
+    },
+    delta_labels: [-0.3,-0.285,-0.27,-0.255,-0.24,-0.225,-0.21,-0.195,-0.18,-0.165,-0.15,-0.135,-0.12,-0.105,-0.09,-0.075,-0.06,-0.045,-0.03,-0.015,0.0,0.015,0.03,0.045,0.06,0.075,0.09,0.105,0.12,0.135,0.15,0.165,0.18,0.195,0.21,0.225,0.24,0.255,0.27,0.285,0.3],
+    sensitivity: {
+      "Score 2017 = 15%": [0.1939,0.1929,0.192,0.1911,0.1901,0.1892,0.1883,0.1874,0.1864,0.1855,0.1846,0.1836,0.1827,0.1818,0.1809,0.1799,0.179,0.1781,0.1771,0.1762,0.1753,0.1743,0.1734,0.1725,0.1716,0.1706,0.1697,0.1688,0.1678,0.1669,0.166,0.165,0.1641,0.1632,0.1623,0.1613,0.1604,0.1595,0.1585,0.1576,0.1567],
+      "Score 2017 = 25%": [0.2619,0.261,0.2601,0.2592,0.2582,0.2573,0.2564,0.2554,0.2545,0.2536,0.2526,0.2517,0.2508,0.2499,0.2489,0.248,0.2471,0.2461,0.2452,0.2443,0.2434,0.2424,0.2415,0.2406,0.2396,0.2387,0.2378,0.2368,0.2359,0.235,0.2341,0.2331,0.2322,0.2313,0.2303,0.2294,0.2285,0.2275,0.2266,0.2257,0.2248],
+      "Score 2017 = 40%": [0.3641,0.3631,0.3622,0.3613,0.3603,0.3594,0.3585,0.3576,0.3566,0.3557,0.3548,0.3538,0.3529,0.352,0.351,0.3501,0.3492,0.3483,0.3473,0.3464,0.3455,0.3445,0.3436,0.3427,0.3417,0.3408,0.3399,0.339,0.338,0.3371,0.3362,0.3352,0.3343,0.3334,0.3325,0.3315,0.3306,0.3297,0.3287,0.3278,0.3269]
+    }
+  };
+
+  // Inline prediction (no API needed)
+  function predictLocal(score2017, delta) {
+    return MODEL.intercept + MODEL.coef_2017 * score2017 + MODEL.coef_delta * delta;
+  }
+
+  // ── PALETTE ───────────────────────────────────────────────────────────────
+  const P = {
+    accent: '#00e5ff',
+    ok:     '#69f0ae',
+    warn:   '#ffab40',
+    danger: '#ef5350',
+    blue:   '#4fc3f7',
+    purple: '#ab47bc',
+    grid:   'rgba(255,255,255,0.06)',
+  };
+
+  Chart.defaults.color = '#5a6a7a';
+  Chart.defaults.borderColor = P.grid;
+  Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+  Chart.defaults.font.size = 11;
+
+  // ── NAVIGATION ────────────────────────────────────────────────────────────
+  document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', e => {
       e.preventDefault();
       const target = item.dataset.view;
-      navItems.forEach(n => n.classList.remove('active'));
-      views.forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       item.classList.add('active');
       document.getElementById(`view-${target}`).classList.add('active');
     });
   });
 
-  // ────────────────────────────────────────────────────────────────
-  // CHART DEFAULTS
-  // ────────────────────────────────────────────────────────────────
-  Chart.defaults.color = '#8899aa';
-  Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
-  Chart.defaults.font.family = "'IBM Plex Mono', monospace";
-  Chart.defaults.font.size = 11;
+  // ── LEAFLET MAP ───────────────────────────────────────────────────────────
+  const map = L.map('franceMap', { center: [46.5, 2.5], zoom: 5, scrollWheelZoom: false });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OSM &copy; CARTO', subdomains: 'abcd', maxZoom: 19,
+  }).addTo(map);
+  function cityMarker(lat, lng, name, primary = false) {
+    const color = primary ? P.accent : P.blue;
+    const size = primary ? 12 : 9;
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;border:2px solid rgba(255,255,255,0.6);box-shadow:0 0 8px ${color}"></div>`,
+      iconSize: [size, size], iconAnchor: [size/2, size/2],
+    });
+    L.marker([lat, lng], { icon })
+     .bindTooltip(`<span style="font-family:'IBM Plex Mono',monospace;font-size:11px">${name}</span>`, { permanent: true, direction: 'top', offset: [0, -8], className: 'map-tooltip' })
+     .addTo(map);
+  }
+  cityMarker(48.8566, 2.3522, 'Paris', true);
+  cityMarker(45.764, 4.8357, 'Lyon');
+  cityMarker(43.2965, 5.3698, 'Marseille');
+  cityMarker(43.6047, 1.4442, 'Toulouse');
+  cityMarker(44.8378, -0.5792, 'Bordeaux');
+  cityMarker(47.2184, -1.5536, 'Nantes');
+  cityMarker(48.5734, 7.7521, 'Strasbourg');
+  cityMarker(50.6292, 3.0573, 'Lille');
+  map.setMaxBounds([[41.3, -5.5], [51.2, 10.0]]);
 
-  const PALETTE = {
-    gauche:   '#4fc3f7',
-    droite:   '#ef5350',
-    centre:   '#ab47bc',
-    extreme:  '#ff7043',
-    grid:     'rgba(255,255,255,0.06)',
-    accent:   '#00e5ff',
-    warn:     '#ffab40',
-    ok:       '#69f0ae',
-  };
+  // ── INIT KPIs + TABLE + EQUATION ──────────────────────────────────────────
+  function initDashboard() {
+    document.getElementById('kpi-b1').innerHTML = `${MODEL.coef_2017.toFixed(4)} <span class="kpi-unit"></span>`;
+    document.getElementById('kpi-b2').innerHTML = `${MODEL.coef_delta.toFixed(4)} <span class="kpi-unit"></span>`;
+    document.getElementById('kpi-b0').innerHTML = `${MODEL.intercept.toFixed(4)} <span class="kpi-unit"></span>`;
 
-  // ────────────────────────────────────────────────────────────────
-  // VUE 1 · Mini Pop
-  // ────────────────────────────────────────────────────────────────
-  new Chart(document.getElementById('chartPopEvolution'), {
-    type: 'line',
-    data: {
-      labels: ['2014','2016','2018','2020','2022','2024'],
-      datasets: [{
-        data: [208, 210, 212, 213, 215, 218],
-        borderColor: PALETTE.accent,
-        backgroundColor: 'rgba(0,229,255,0.08)',
-        borderWidth: 2,
-        fill: true,
-        tension: 0.4,
-        pointRadius: 3,
-        pointBackgroundColor: PALETTE.accent,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false }, tooltip: { enabled: true }},
-      scales: {
-        x: { grid: { color: PALETTE.grid }},
-        y: { grid: { color: PALETTE.grid }, ticks: { callback: v => v+'k' }}
-      }
-    }
-  });
+    // Table
+    const tbody = document.getElementById('modelTableBody');
+    const rows = [
+      ['β₀ (intercept)', 'intercept', MODEL.intercept.toFixed(6), 'Score de base (score_2017 = 0, Δ = 0)'],
+      ['β₁ (score_2017)', 'feature', MODEL.coef_2017.toFixed(6), '+0.681 pt de score par pt de score 2017'],
+      ['β₂ (delta)', 'feature', MODEL.coef_delta.toFixed(6), '−0.062 pt par unité de Δ (effet négatif)'],
+    ];
+    tbody.innerHTML = rows.map(([name, type, val, interp]) => {
+      const tagClass = type === 'intercept' ? 'tag-intercept' : 'tag-feature';
+      const valClass = parseFloat(val) >= 0 ? 'val-pos' : 'val-neg';
+      return `<tr>
+        <td>${name}</td>
+        <td><span class="${tagClass}">${type}</span></td>
+        <td class="${valClass}">${val}</td>
+        <td style="font-size:0.7rem;color:var(--muted)">${interp}</td>
+      </tr>`;
+    }).join('');
 
-  // ────────────────────────────────────────────────────────────────
-  // VUE 1 · Socio-Éco Multi-line
-  // ────────────────────────────────────────────────────────────────
-  new Chart(document.getElementById('chartSocioEco'), {
-    type: 'line',
-    data: {
-      labels: ['2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024'],
-      datasets: [
-        {
-          label: 'Chômage (%)',
-          data: [14.2, 13.8, 13.5, 12.9, 12.4, 12.0, 13.1, 12.8, 12.2, 11.8, 11.4],
-          borderColor: PALETTE.warn, backgroundColor: 'transparent',
-          borderWidth: 2, tension: 0.3, pointRadius: 3,
-        },
-        {
-          label: 'Sécurité (score /10)',
-          data: [5.1, 5.3, 5.6, 5.8, 6.0, 6.1, 5.9, 6.0, 6.1, 6.2, 6.2],
-          borderColor: PALETTE.ok, backgroundColor: 'transparent',
-          borderWidth: 2, tension: 0.3, pointRadius: 3,
-        },
-        {
-          label: 'Revenu médian (k€)',
-          data: [17.2, 17.8, 18.3, 18.9, 19.4, 19.9, 19.7, 20.2, 20.8, 21.3, 21.0],
-          borderColor: PALETTE.accent, backgroundColor: 'transparent',
-          borderWidth: 2, tension: 0.3, pointRadius: 3,
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: true, position: 'top', labels: { boxWidth: 12, usePointStyle: true }},
-      },
-      scales: {
-        x: { grid: { color: PALETTE.grid }},
-        y: { grid: { color: PALETTE.grid }},
-      }
-    }
-  });
-
-  // ────────────────────────────────────────────────────────────────
-  // VUE 2 · HEATMAP
-  // ────────────────────────────────────────────────────────────────
-  const labels = ['Chômage','Sécurité','Revenu','Pauvreté','Migration','Éducation'];
-  const parties = ['Gauche','Droite','Centre','Extrêmes'];
-  const corrData = [
-    [0.72, -0.61, -0.68, 0.81, 0.44, -0.55],
-    [-0.65, 0.58, 0.71, -0.73, -0.39, 0.62],
-    [-0.31, 0.22, 0.45, -0.28, 0.11, 0.38],
-    [0.83, -0.74, -0.78, 0.88, 0.52, -0.60],
-  ];
-
-  function corrToColor(v) {
-    const r = v > 0
-      ? `rgba(79,195,247,${Math.abs(v)})`
-      : `rgba(239,83,80,${Math.abs(v)})`;
-    return r;
+    // Equation
+    const sign = MODEL.coef_delta >= 0 ? '+' : '−';
+    document.getElementById('dashEquation').innerHTML = `
+      <span class="eq-hat">ŷ</span>
+      <span class="eq-op">=</span>
+      <span class="eq-val accent">${MODEL.intercept.toFixed(5)}</span>
+      <span class="eq-op">+</span>
+      <span class="eq-val ok">${MODEL.coef_2017.toFixed(5)}</span>
+      <span class="eq-var">× score<sub>2017</sub></span>
+      <span class="eq-op">${sign}</span>
+      <span class="eq-val warn">${Math.abs(MODEL.coef_delta).toFixed(5)}</span>
+      <span class="eq-var">× Δ</span>
+    `;
+    document.getElementById('dashEqNote').textContent = 'ŷ ∈ [0 ; 1] — proportion de votes prédite';
   }
 
-  const grid = document.getElementById('heatmapGrid');
-  grid.style.gridTemplateColumns = `80px repeat(${labels.length}, 1fr)`;
-
-  // Header row
-  grid.innerHTML += `<div class="hm-cell hm-header"></div>`;
-  labels.forEach(l => {
-    grid.innerHTML += `<div class="hm-cell hm-header mono">${l}</div>`;
-  });
-
-  corrData.forEach((row, ri) => {
-    grid.innerHTML += `<div class="hm-cell hm-row-label mono">${parties[ri]}</div>`;
-    row.forEach(v => {
-      grid.innerHTML += `<div class="hm-cell hm-data" style="background:${corrToColor(v)}" title="${v.toFixed(2)}">${v.toFixed(2)}</div>`;
-    });
-  });
-
-  // ────────────────────────────────────────────────────────────────
-  // VUE 2 · SCATTER
-  // ────────────────────────────────────────────────────────────────
-  const scatterPoints = [
-    {x:14.2,y:42},{x:13.8,y:43},{x:13.5,y:44},{x:12.9,y:42},
-    {x:12.4,y:46},{x:12.0,y:45},{x:13.1,y:41},{x:12.8,y:43},
-    {x:12.2,y:44},{x:11.8,y:47},{x:11.4,y:48}
-  ];
-  new Chart(document.getElementById('chartScatter'), {
-    type: 'scatter',
-    data: {
-      datasets: [{
-        label: 'Communes',
-        data: scatterPoints,
-        backgroundColor: 'rgba(79,195,247,0.6)',
-        borderColor: PALETTE.gauche,
-        pointRadius: 6,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false }},
-      scales: {
-        x: { title: { display: true, text: 'Taux chômage (%)' }, grid: { color: PALETTE.grid }},
-        y: { title: { display: true, text: 'Score Gauche (%)' }, grid: { color: PALETTE.grid }},
-      }
-    }
-  });
-
-  // ────────────────────────────────────────────────────────────────
-  // VUE 2 · TREND
-  // ────────────────────────────────────────────────────────────────
-  new Chart(document.getElementById('chartTrend'), {
-    type: 'line',
-    data: {
-      labels: ['2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024'],
-      datasets: [{
-        label: 'Chômage (%)',
-        data: [14.2, 13.8, 13.5, 12.9, 12.4, 12.0, 13.1, 12.8, 12.2, 11.8, 11.4],
-        borderColor: PALETTE.warn,
-        backgroundColor: 'rgba(255,171,64,0.1)',
-        borderWidth: 2, fill: true, tension: 0.4, pointRadius: 3,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false }},
-      scales: {
-        x: { grid: { color: PALETTE.grid }},
-        y: { grid: { color: PALETTE.grid }},
-      }
-    }
-  });
-
-  // VUE 2 · Feature Importance
-  new Chart(document.getElementById('chartFeatureImportance'), {
-    type: 'bar',
-    data: {
-      labels: ['Pauvreté','Chômage','Sécurité','Revenu','Migration','Éducation','Âge médian'],
-      datasets: [{
-        data: [0.28, 0.22, 0.18, 0.13, 0.09, 0.07, 0.03],
-        backgroundColor: [
-          'rgba(0,229,255,0.85)','rgba(0,229,255,0.7)','rgba(0,229,255,0.55)',
-          'rgba(0,229,255,0.45)','rgba(0,229,255,0.35)','rgba(0,229,255,0.25)',
-          'rgba(0,229,255,0.15)'
-        ],
-        borderRadius: 4,
-        borderSkipped: false,
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      plugins: { legend: { display: false }},
-      scales: {
-        x: { grid: { color: PALETTE.grid }, max: 0.35 },
-        y: { grid: { display: false }},
-      }
-    }
-  });
-
-  // ────────────────────────────────────────────────────────────────
-  // VUE 3 · GAUGE (semi-circle via arc)
-  // ────────────────────────────────────────────────────────────────
-  function drawGauge(canvasId, value, color) {
+  // ── GAUGES ────────────────────────────────────────────────────────────────
+  function drawGauge(canvasId, value, maxVal, color) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const cx = canvas.width / 2, cy = canvas.height - 10;
-    const r = 60;
-
+    const cx = canvas.width / 2, cy = canvas.height - 10, r = 60;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Track
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, Math.PI, 0);
-    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-    ctx.lineWidth = 10;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-
-    // Value arc
-    const end = Math.PI + value * Math.PI;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, Math.PI, end);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 10;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-
-    // Threshold at 0.5
-    const threshAngle = Math.PI + 0.5 * Math.PI;
-    const tx = cx + (r+14) * Math.cos(threshAngle);
-    const ty = cy + (r+14) * Math.sin(threshAngle);
-    ctx.beginPath();
-    ctx.arc(cx, cy, r+2, threshAngle-0.04, threshAngle+0.04);
-    ctx.strokeStyle = PALETTE.warn;
-    ctx.lineWidth = 3;
-    ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, 0);
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.stroke();
+    const ratio = Math.min(Math.abs(value) / maxVal, 1);
+    ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, Math.PI + ratio * Math.PI);
+    ctx.strokeStyle = color; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.stroke();
   }
 
-  drawGauge('gaugeAccuracy', 0.74, PALETTE.ok);
-  drawGauge('gaugeF1',       0.71, PALETTE.accent);
-  drawGauge('gaugeAuc',      0.81, PALETTE.gauche);
+  function initGauges() {
+    document.getElementById('gaugeVal1').textContent = MODEL.coef_2017.toFixed(4);
+    document.getElementById('gaugeVal2').textContent = Math.abs(MODEL.coef_delta).toFixed(4);
+    document.getElementById('gaugeVal3').textContent = MODEL.intercept.toFixed(4);
+    drawGauge('gaugeAccuracy', MODEL.coef_2017,              1.0,  P.ok);
+    drawGauge('gaugeF1',       Math.abs(MODEL.coef_delta),   1.0,  P.accent);
+    drawGauge('gaugeAuc',      Math.abs(MODEL.intercept),    1.0,  P.blue);
+  }
 
-  // ────────────────────────────────────────────────────────────────
-  // VUE 3 · PREDICTION TIME SERIES
-  // ────────────────────────────────────────────────────────────────
-  const years = ['2012','2014','2017','2019','2022','2025*','2026*','2027*'];
-  const historical = [38.2, 40.1, 42.3, 41.8, 43.5, null, null, null];
-  const predicted  = [null, null, null, null, 43.5, 45.1, 46.3, 44.8];
+  // ── EQUATION BLOCK (vue 2) ────────────────────────────────────────────────
+  function initEquationBlock() {
+    const sign = MODEL.coef_delta >= 0 ? '+' : '−';
+    document.getElementById('equationBlock').innerHTML = `
+      <div class="eq-block">
+        <div class="eq-title mono">FORMULE DU MODÈLE — sklearn LinearRegression</div>
+        <div class="eq-formula">
+          <span class="eq-hat">ŷ</span>
+          <span class="eq-op">=</span>
+          <span class="eq-val accent">${MODEL.intercept.toFixed(5)}</span>
+          <span class="eq-op">+</span>
+          <span class="eq-val ok">${MODEL.coef_2017.toFixed(5)}</span>
+          <span class="eq-var">× score<sub>2017</sub></span>
+          <span class="eq-op">${sign}</span>
+          <span class="eq-val warn">${Math.abs(MODEL.coef_delta).toFixed(5)}</span>
+          <span class="eq-var">× Δ</span>
+        </div>
+        <div class="eq-legend mono">
+          <span style="color:var(--accent)">■ intercept β₀</span>
+          <span style="color:var(--ok)">■ β₁ Score 2017</span>
+          <span style="color:var(--warn)">■ β₂ Delta Δ (négatif)</span>
+        </div>
+        <div class="eq-note mono">
+          Inertie électorale forte : β₁ = ${MODEL.coef_2017.toFixed(4)} (le passé prédit fortement le futur).<br>
+          Delta atténue légèrement : β₂ = ${MODEL.coef_delta.toFixed(4)} (variation défavorable → score prédit légèrement inférieur).
+        </div>
+      </div>`;
+  }
 
-  new Chart(document.getElementById('chartPrediction'), {
-    type: 'line',
-    data: {
-      labels: years,
-      datasets: [
-        {
-          label: 'Résultats historiques (Gauche)',
-          data: historical,
-          borderColor: PALETTE.gauche,
-          backgroundColor: 'rgba(79,195,247,0.08)',
-          borderWidth: 2.5, fill: true, tension: 0.4,
-          pointRadius: 5, pointBackgroundColor: PALETTE.gauche,
-          spanGaps: false,
-        },
-        {
-          label: 'Projection modèle (Gauche)',
-          data: predicted,
-          borderColor: PALETTE.gauche,
-          backgroundColor: 'rgba(79,195,247,0.04)',
-          borderWidth: 2.5, borderDash: [6, 4],
-          fill: true, tension: 0.4,
-          pointRadius: 5, pointBackgroundColor: PALETTE.gauche,
-          spanGaps: false,
-        },
-        {
-          label: 'Résultats historiques (Droite)',
-          data: [32.1, 30.5, 28.3, 29.7, 27.8, null, null, null],
-          borderColor: PALETTE.droite,
-          borderWidth: 2.5, backgroundColor: 'transparent',
-          tension: 0.4, pointRadius: 4,
-          spanGaps: false,
-        },
-        {
-          label: 'Projection modèle (Droite)',
-          data: [null,null,null,null, 27.8, 26.4, 25.9, 27.1],
-          borderColor: PALETTE.droite,
-          borderWidth: 2.5, borderDash: [6, 4],
-          backgroundColor: 'transparent', tension: 0.4, pointRadius: 4,
-          spanGaps: false,
-        },
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: true, position: 'top', labels: { boxWidth: 14, usePointStyle: true }},
-        tooltip: { mode: 'index', intersect: false }
-      },
-      scales: {
-        x: { grid: { color: PALETTE.grid }},
-        y: {
-          grid: { color: PALETTE.grid },
-          min: 20, max: 55,
-          ticks: { callback: v => v+'%' }
-        }
-      }
-    }
-  });
-
-  // ────────────────────────────────────────────────────────────────
-  // VUE 3 · PROBABILITIES
-  // ────────────────────────────────────────────────────────────────
-  new Chart(document.getElementById('chartProbabilities'), {
-    type: 'bar',
-    data: {
-      labels: ['Victoire Gauche', 'Victoire Droite', 'Victoire Centre', 'Extrêmes 1er'],
-      datasets: [
-        {
-          label: '2025',
-          data: [52, 28, 14, 6],
-          backgroundColor: 'rgba(0,229,255,0.75)',
-          borderRadius: 4,
-        },
-        {
-          label: '2026',
-          data: [55, 24, 13, 8],
-          backgroundColor: 'rgba(79,195,247,0.5)',
-          borderRadius: 4,
-        },
-        {
-          label: '2027',
-          data: [49, 27, 15, 9],
-          backgroundColor: 'rgba(171,71,188,0.6)',
-          borderRadius: 4,
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: true, position: 'top', labels: { boxWidth: 12 }},
-      },
-      scales: {
-        x: { grid: { display: false }},
-        y: {
-          grid: { color: PALETTE.grid },
-          max: 70,
-          ticks: { callback: v => v+'%' }
-        }
-      }
-    }
-  });
-
-  // ────────────────────────────────────────────────────────────────
-  // VUE 3 · CONFUSION MATRIX
-  // ────────────────────────────────────────────────────────────────
-  const cm = document.getElementById('confusionMatrix');
-  const cmData = [[42,5,3],[6,38,4],[2,3,31]];
-  const cmLabels = ['Gauche','Droite','Centre'];
-  let cmHtml = `<div class="cm-grid" style="grid-template-columns: 60px repeat(3,1fr)">`;
-  cmHtml += `<div class="cm-cell cm-corner mono"></div>`;
-  cmLabels.forEach(l => cmHtml += `<div class="cm-cell cm-header mono">${l}</div>`);
-  cmData.forEach((row, ri) => {
-    cmHtml += `<div class="cm-cell cm-row-label mono">${cmLabels[ri]}</div>`;
-    row.forEach((v, ci) => {
-      const isDiag = ri === ci;
-      cmHtml += `<div class="cm-cell cm-data ${isDiag?'cm-diag':''} mono">${v}</div>`;
+  // ── CHART: Courbes modèle (dashboard + detail) ────────────────────────────
+  function makeModelCurvesChart(canvasId) {
+    const labels = MODEL.curve_labels.map(v => `${(v*100).toFixed(0)}%`);
+    const colors = [P.blue, P.accent, P.ok];
+    const datasets = Object.entries(MODEL.curves).map(([name, data], i) => ({
+      label: name,
+      data: data.map(v => parseFloat((v*100).toFixed(2))),
+      borderColor: colors[i],
+      backgroundColor: 'transparent',
+      borderWidth: i === 1 ? 2.5 : 1.8,
+      borderDash: i === 1 ? [] : [i === 0 ? 4 : 6, 3],
+      tension: 0.3, pointRadius: 0,
+    }));
+    // Add identity line
+    datasets.push({
+      label: 'Identité (ŷ = score 2017)',
+      data: MODEL.curve_labels.map(v => parseFloat((v*100).toFixed(2))),
+      borderColor: 'rgba(255,255,255,0.15)',
+      backgroundColor: 'transparent',
+      borderWidth: 1, borderDash: [3, 3], tension: 0, pointRadius: 0,
     });
-  });
-  cmHtml += `</div>`;
-  cmHtml += `<div class="cm-legend mono">Réel → Colonnes / Prédit → Lignes</div>`;
-  cm.innerHTML = cmHtml;
-
-  // ────────────────────────────────────────────────────────────────
-  // VUE 4 · SOURCES DOUGHNUT
-  // ────────────────────────────────────────────────────────────────
-  new Chart(document.getElementById('chartSources'), {
-    type: 'doughnut',
-    data: {
-      labels: ['INSEE (Démographie)','Data.gouv (Élections)','Intérieur (Sécurité)','Pôle Emploi'],
-      datasets: [{
-        data: [35, 28, 22, 15],
-        backgroundColor: [PALETTE.accent, PALETTE.gauche, PALETTE.ok, PALETTE.warn],
-        borderWidth: 0,
-        hoverOffset: 6,
-      }]
-    },
-    options: {
-      responsive: true,
-      cutout: '62%',
-      plugins: {
-        legend: { display: true, position: 'right', labels: { boxWidth: 12, padding: 10 }},
-      }
-    }
-  });
-
-  // ────────────────────────────────────────────────────────────────
-  // VUE 4 · DATA HEALTH RADAR
-  // ────────────────────────────────────────────────────────────────
-  new Chart(document.getElementById('chartDataHealth'), {
-    type: 'radar',
-    data: {
-      labels: ['Complétude','Cohérence','Fraîcheur','Traçabilité','Exactitude','Accessibilité'],
-      datasets: [
-        {
-          label: 'Score actuel',
-          data: [94, 88, 95, 82, 90, 100],
-          backgroundColor: 'rgba(0,229,255,0.12)',
-          borderColor: PALETTE.accent,
-          borderWidth: 2, pointBackgroundColor: PALETTE.accent, pointRadius: 4,
+    return new Chart(document.getElementById(canvasId), {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: true, position: 'top', labels: { boxWidth: 12, usePointStyle: true } },
+          tooltip: { mode: 'index', intersect: false,
+            callbacks: { label: ctx => ` ${ctx.dataset.label} : ${ctx.raw.toFixed(1)}%` } }
         },
-        {
-          label: 'Seuil requis',
-          data: [70, 70, 70, 70, 70, 70],
-          backgroundColor: 'transparent',
-          borderColor: 'rgba(255,171,64,0.4)',
-          borderWidth: 1.5, borderDash: [4,4],
-          pointRadius: 0,
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12 }}},
-      scales: {
-        r: {
-          min: 0, max: 100,
-          grid: { color: 'rgba(255,255,255,0.07)' },
-          angleLines: { color: 'rgba(255,255,255,0.07)' },
-          ticks: { backdropColor: 'transparent', stepSize: 25 },
-          pointLabels: { font: { family: "'IBM Plex Mono'", size: 10 }}
+        scales: {
+          x: { grid: { color: P.grid }, title: { display: true, text: 'Score 2017 (%)' } },
+          y: { grid: { color: P.grid }, ticks: { callback: v => v+'%' }, title: { display: true, text: 'Score prédit ŷ (%)' } }
         }
       }
-    }
-  });
-
-  // ────────────────────────────────────────────────────────────────
-  // FILTER CHIPS
-  // ────────────────────────────────────────────────────────────────
-  document.querySelectorAll('.chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
     });
+  }
+
+  // ── CHART: Sensibilité ────────────────────────────────────────────────────
+  function initSensitivity() {
+    const labels = MODEL.delta_labels.map(v => v.toFixed(2));
+    const colors = [P.blue, P.accent, P.ok];
+    const datasets = Object.entries(MODEL.sensitivity).map(([name, data], i) => ({
+      label: name,
+      data: data.map(v => parseFloat((v*100).toFixed(2))),
+      borderColor: colors[i],
+      backgroundColor: 'transparent',
+      borderWidth: 2, tension: 0.3, pointRadius: 0,
+    }));
+    new Chart(document.getElementById('chartSensitivity'), {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: true, position: 'top', labels: { boxWidth: 12, usePointStyle: true } },
+          tooltip: { mode: 'index', intersect: false, callbacks: { label: ctx => ` ${ctx.dataset.label} : ${ctx.raw.toFixed(1)}%` } }
+        },
+        scales: {
+          x: { grid: { color: P.grid }, title: { display: true, text: 'Valeur de Δ' } },
+          y: { grid: { color: P.grid }, ticks: { callback: v => v+'%' }, title: { display: true, text: 'Score prédit ŷ (%)' } }
+        }
+      }
+    });
+  }
+
+  // ── CHART: Feature Importance ─────────────────────────────────────────────
+  function initFeatureImportance() {
+    new Chart(document.getElementById('chartFeatureImportance'), {
+      type: 'bar',
+      data: {
+        labels: ['β₁ — Score 2017', 'β₂ — Delta Δ (|val|)'],
+        datasets: [{
+          label: 'Coefficient |β|',
+          data: [MODEL.coef_2017, Math.abs(MODEL.coef_delta)],
+          backgroundColor: [P.accent, P.warn],
+          borderRadius: 4, borderSkipped: false,
+        }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` |β| = ${ctx.raw.toFixed(6)}` } }
+        },
+        scales: {
+          x: { grid: { color: P.grid }, title: { display: true, text: 'Valeur absolue du coefficient' } },
+          y: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  // ── CHART: Coef Share doughnut ────────────────────────────────────────────
+  function initCoefShare() {
+    const total = MODEL.coef_2017 + Math.abs(MODEL.coef_delta);
+    new Chart(document.getElementById('chartCoefShare'), {
+      type: 'doughnut',
+      data: {
+        labels: ['β₁ — Score 2017', '|β₂| — Delta Δ'],
+        datasets: [{
+          data: [
+            parseFloat(((MODEL.coef_2017 / total) * 100).toFixed(1)),
+            parseFloat(((Math.abs(MODEL.coef_delta) / total) * 100).toFixed(1)),
+          ],
+          backgroundColor: [P.accent, P.warn],
+          borderWidth: 0, hoverOffset: 8,
+        }]
+      },
+      options: {
+        responsive: true, cutout: '60%',
+        plugins: {
+          legend: { display: true, position: 'bottom', labels: { boxWidth: 12, padding: 10 } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${ctx.raw}%` } }
+        }
+      }
+    });
+  }
+
+  // ── PREDICTION GRID (heatmap table) ───────────────────────────────────────
+  function initPredGrid() {
+    const scores = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50];
+    const deltas = [-0.20, -0.15, -0.10, -0.05, 0.00, 0.05, 0.10, 0.15, 0.20];
+
+    let html = `<table style="border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;min-width:600px">
+      <thead><tr>
+        <th style="padding:6px 10px;color:var(--muted);font-size:0.6rem;text-align:left">Score 2017 →<br>Δ ↓</th>
+        ${scores.map(s => `<th style="padding:6px 8px;color:var(--muted);font-size:0.6rem;text-align:center">${(s*100).toFixed(0)}%</th>`).join('')}
+      </tr></thead>
+      <tbody>`;
+
+    deltas.forEach(d => {
+      html += `<tr><td style="padding:5px 10px;color:var(--muted);font-size:0.6rem">${d >= 0 ? '+' : ''}${d.toFixed(2)}</td>`;
+      scores.forEach(s => {
+        const val = predictLocal(s, d);
+        const pct = (val * 100);
+        const intensity = Math.min(pct / 60, 1);
+        const bg = `rgba(0,229,255,${(intensity * 0.55).toFixed(2)})`;
+        const textColor = intensity > 0.5 ? '#000' : 'var(--text)';
+        html += `<td style="padding:5px 8px;text-align:center;background:${bg};color:${textColor}">${pct.toFixed(1)}%</td>`;
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    document.getElementById('predGrid').innerHTML = html;
+  }
+
+  // ── DATA HEALTH RADAR ─────────────────────────────────────────────────────
+  function initDataHealth() {
+    new Chart(document.getElementById('chartDataHealth'), {
+      type: 'radar',
+      data: {
+        labels: ['Complétude','Cohérence','Fraîcheur','Traçabilité','Exactitude','Accessibilité'],
+        datasets: [
+          {
+            label: 'Score actuel',
+            data: [94, 88, 95, 82, 90, 100],
+            backgroundColor: 'rgba(0,229,255,0.1)', borderColor: P.accent,
+            borderWidth: 2, pointBackgroundColor: P.accent, pointRadius: 4,
+          },
+          {
+            label: 'Seuil requis',
+            data: [70, 70, 70, 70, 70, 70],
+            backgroundColor: 'transparent', borderColor: 'rgba(255,171,64,0.35)',
+            borderWidth: 1.5, borderDash: [4,4], pointRadius: 0,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12 } } },
+        scales: {
+          r: {
+            min: 0, max: 100,
+            grid: { color: 'rgba(255,255,255,0.07)' },
+            angleLines: { color: 'rgba(255,255,255,0.07)' },
+            ticks: { backdropColor: 'transparent', stepSize: 25 },
+            pointLabels: { font: { family: "'IBM Plex Mono'", size: 10 } }
+          }
+        }
+      }
+    });
+  }
+
+  // ── PREDICT FORM ──────────────────────────────────────────────────────────
+  document.getElementById('predictBtn').addEventListener('click', () => {
+    const s = parseFloat(document.getElementById('input2017').value);
+    const d = parseFloat(document.getElementById('inputDelta').value);
+    if (isNaN(s) || isNaN(d)) { alert('Valeurs numériques requises.'); return; }
+    const pred = predictLocal(s, d);
+    const pct = (pred * 100).toFixed(2);
+    document.getElementById('predictValue').textContent = `${pct} %`;
+    document.getElementById('predictFormula').textContent =
+      `ŷ = ${MODEL.intercept.toFixed(5)} + ${MODEL.coef_2017.toFixed(5)} × ${s} + (${MODEL.coef_delta.toFixed(5)}) × ${d} = ${pred.toFixed(5)}`;
+    document.getElementById('predictResult').style.display = 'flex';
   });
 
-  // ────────────────────────────────────────────────────────────────
-  // EXPAND BUTTON — inject into every .card-header
-  // ────────────────────────────────────────────────────────────────
+  // ── EXPAND BUTTONS ────────────────────────────────────────────────────────
   document.querySelectorAll('.card').forEach(card => {
     const header = card.querySelector('.card-header');
     if (!header) return;
-
     const btn = document.createElement('button');
     btn.className = 'expand-btn';
     btn.title = 'Agrandir';
-    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-      <path d="M1 5V1H5M8 1H12V5M12 8V12H8M5 12H1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>`;
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 13 13" fill="none"><path d="M1 5V1H5M8 1H12V5M12 8V12H8M5 12H1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     header.appendChild(btn);
-
     btn.addEventListener('click', () => {
-      const titleEl = header.querySelector('.card-title');
-      const title = titleEl ? titleEl.textContent : 'Graphique';
+      const title = header.querySelector('.card-title')?.textContent || '';
       openExpand(card, title);
     });
   });
 
-  // ────────────────────────────────────────────────────────────────
-  // EXPAND MODAL LOGIC
-  // ────────────────────────────────────────────────────────────────
-  const overlay  = document.getElementById('expandOverlay');
+  const overlay = document.getElementById('expandOverlay');
   const modalBody = document.getElementById('expandBody');
-  const modalTitle = document.getElementById('expandTitle');
-  const closeBtn  = document.getElementById('expandClose');
-
-  // Store original parent and next sibling to restore later
-  let originalParent = null;
-  let originalNext   = null;
-  let clonedNode     = null;
-
+  let clonedNode = null;
   function openExpand(card, title) {
-    modalTitle.textContent = title;
+    document.getElementById('expandTitle').textContent = title;
     modalBody.innerHTML = '';
-
-    // Clone the card inner content (minus header)
     clonedNode = card.cloneNode(true);
-    // Remove the expand btn from clone
-    const cloneBtn = clonedNode.querySelector('.expand-btn');
-    if (cloneBtn) cloneBtn.remove();
-    // Remove card header from clone (already shown in modal header)
-    const cloneHeader = clonedNode.querySelector('.card-header');
-    if (cloneHeader) cloneHeader.remove();
-
+    clonedNode.querySelector('.expand-btn')?.remove();
+    clonedNode.querySelector('.card-header')?.remove();
     clonedNode.classList.add('expand-card-clone');
     modalBody.appendChild(clonedNode);
-
-    // Re-render any canvas inside modal using Chart.js
-    const originalCanvases = card.querySelectorAll('canvas');
-    const cloneCanvases    = clonedNode.querySelectorAll('canvas');
-
-    originalCanvases.forEach((origCanvas, i) => {
+    card.querySelectorAll('canvas').forEach((origCanvas, i) => {
       const origChart = Chart.getChart(origCanvas);
       if (!origChart) return;
-      const cloneCanvas = cloneCanvases[i];
+      const cloneCanvas = clonedNode.querySelectorAll('canvas')[i];
       if (!cloneCanvas) return;
-      cloneCanvas.removeAttribute('height');
-      cloneCanvas.removeAttribute('style');
+      cloneCanvas.removeAttribute('height'); cloneCanvas.removeAttribute('style');
       new Chart(cloneCanvas, {
-        type:    origChart.config.type,
-        data:    JSON.parse(JSON.stringify(origChart.config.data)),
-        options: Object.assign({}, origChart.config.options, {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: { duration: 400 },
-        }),
+        type: origChart.config.type,
+        data: JSON.parse(JSON.stringify(origChart.config.data)),
+        options: Object.assign({}, origChart.config.options, { responsive: true, maintainAspectRatio: false }),
       });
     });
-
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
   }
-
   function closeExpand() {
     overlay.classList.remove('open');
     document.body.style.overflow = '';
-    // Destroy cloned charts to avoid memory leaks
-    if (clonedNode) {
-      clonedNode.querySelectorAll('canvas').forEach(c => {
-        const ch = Chart.getChart(c);
-        if (ch) ch.destroy();
-      });
-    }
+    clonedNode?.querySelectorAll('canvas').forEach(c => Chart.getChart(c)?.destroy());
     modalBody.innerHTML = '';
     clonedNode = null;
   }
+  document.getElementById('expandClose').addEventListener('click', closeExpand);
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeExpand(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeExpand(); });
 
-  closeBtn.addEventListener('click', closeExpand);
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) closeExpand();
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeExpand();
-  });
+  // ── BOOT ──────────────────────────────────────────────────────────────────
+  initDashboard();
+  initGauges();
+  initEquationBlock();
+  makeModelCurvesChart('chartModelCurves');
+  initSensitivity();
+  initFeatureImportance();
+  initCoefShare();
+  initPredGrid();
+  initDataHealth();
+  makeModelCurvesChart('chartPredictionDetail');
+
   </script>
 </body>
 </html>
