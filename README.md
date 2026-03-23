@@ -19,6 +19,8 @@ python app.py
 
 Ouvrir [http://localhost:5000](http://localhost:5000).
 
+Note : en local, l’app charge automatiquement le fichier `.env` (via `python-dotenv`), donc `GET /health/db` fonctionne si les variables DB sont renseignées.
+
 ### Configuration BDD MySQL (SSL)
 
 1. Copier la base d'environnement :
@@ -40,6 +42,12 @@ python app.py
 
 ```bash
 curl http://localhost:5000/health/db
+```
+
+Si tu exécutes le serveur via Docker, utilise plutôt :
+
+```bash
+curl http://localhost:5001/health/db
 ```
 
 ## Lancer avec Docker
@@ -89,11 +97,24 @@ Puis [http://localhost:5001](http://localhost:5001).
 ## ETL : ingestion des CSV vers MySQL
 
 1. Vérifier que tes CSV/Excel bruts sont dans `data_initial/` (structure attendue : `data-presidentielle/`, `population-par-commune-INSEE/`, `revenu-des-francais-a-la-commune-2021/`, `Taux-de-chomage/`).
-2. Lancer l'ETL (depuis le conteneur si tu veux éviter les problèmes de dépendances) :
+2. Noms de fichiers attendus (ceux utilisés par `modele_prediction/etl_mspr_to_mysql.py`) :
+
+```text
+data_initial/data-presidentielle/resultats-presidentielle-2002.xls
+data_initial/data-presidentielle/resultats-presidentielle-2007.xls
+data_initial/data-presidentielle/resultats-presidentielle-2012.xls
+data_initial/data-presidentielle/resultats-presidentielle-2017.csv
+data_initial/data-presidentielle/resultats-presidentielle-2022.xlsx
+
+data_initial/population-par-commune-INSEE/donnees_communes.csv
+data_initial/revenu-des-francais-a-la-commune-2021/revenu_des_francais_a_la_commune_2021.csv
+data_initial/Taux-de-chomage/taux-de-chomage.xlsx
+```
+3. Lancer l'ETL (depuis le conteneur si tu veux éviter les problèmes de dépendances) :
 
 ```bash
 docker compose up --build -d
-docker exec -it mspr1-master-dashboard-1 python modele_prediction/etl_mspr_to_mysql.py
+docker compose exec -T dashboard python modele_prediction/etl_mspr_to_mysql.py
 ```
 
 Une fois l'ETL terminé :

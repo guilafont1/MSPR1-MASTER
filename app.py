@@ -7,8 +7,11 @@ import warnings
 import numpy as np
 import pandas as pd
 import joblib
+from dotenv import load_dotenv
 import mysql.connector
 from flask import Flask, render_template, request, jsonify
+
+load_dotenv()  # Charge automatiquement les variables depuis `.env` (utile en local)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")

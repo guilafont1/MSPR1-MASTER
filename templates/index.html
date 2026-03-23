@@ -367,6 +367,7 @@
     <div class="sidebar-footer">
       <div class="status-dot active"></div>
       <span class="mono">LinearRegression · 2 features</span>
+      <span class="mono" id="dbStatus">DB: vérification…</span>
     </div>
   </aside>
 
@@ -712,6 +713,27 @@
     purple: '#ab47bc',
     grid:   'rgba(255,255,255,0.06)',
   };
+
+  // ── DB HEALTH (front ↔ BDD) ──────────────────────────────────────────────
+  // Montre si la connexion MySQL/Aiven répond correctement.
+  (async function updateDbStatus() {
+    const el = document.getElementById('dbStatus');
+    if (!el) return;
+    try {
+      const res = await fetch('/health/db', { method: 'GET' });
+      const payload = await res.json();
+      if (payload && payload.status === 'ok') {
+        el.textContent = 'DB: OK';
+        el.style.color = P.ok;
+      } else {
+        el.textContent = 'DB: KO';
+        el.style.color = P.danger;
+      }
+    } catch (e) {
+      el.textContent = 'DB: KO';
+      el.style.color = P.danger;
+    }
+  })();
 
   Chart.defaults.color = '#5a6a7a';
   Chart.defaults.borderColor = P.grid;
