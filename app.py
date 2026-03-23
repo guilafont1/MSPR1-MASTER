@@ -7,6 +7,7 @@ import warnings
 import numpy as np
 import pandas as pd
 import joblib
+import mysql.connector
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
@@ -102,6 +103,40 @@ def sensitivity():
         X = pd.DataFrame([[score, d] for d in deltas], columns=["2017", "delta"])
         result["series"][name] = [round(float(v), 4) for v in model.predict(X)]
     return jsonify(result)
+
+
+def get_db_config():
+    """Construit la configuration MySQL depuis les variables d'environnement."""
+    return {
+        "host": os.environ.get("DB_HOST"),
+        "port": int(os.environ.get("DB_PORT", "3306")),
+        "user": os.environ.get("DB_USER"),
+        "password": os.environ.get("DB_PASSWORD"),
+        "database": os.environ.get("DB_NAME"),
+        "ssl_disabled": os.environ.get("DB_SSL_REQUIRED", "true").lower() != "true",
+        "ssl_ca": os.environ.get("DB_SSL_CA_PATH"),
+        "connection_timeout": int(os.environ.get("DB_CONNECT_TIMEOUT", "5")),
+    }
+
+
+@app.route("/health/db", methods=["GET"])
+def db_health():
+    """Vérifie la connectivité à la base MySQL distante."""
+    db_config = get_db_config()
+    required_keys = {"host", "user", "password", "database"}
+    missing = [k for k, v in db_config.items() if k in required_keys and not v]
+    if missing:
+        return jsonify({"status": "error", "message": f"Variables manquantes: {', '.join(missing)}"}), 500
+
+    try:
+        connection = mysql.connector.connect(**db_config)
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+        connection.close()
+        return jsonify({"status": "ok", "message": "Connexion MySQL opérationnelle"}), 200
+    except mysql.connector.Error as exc:
+        return jsonify({"status": "error", "message": f"Connexion MySQL impossible: {exc.msg}"}), 500
 
 
 if __name__ == "__main__":

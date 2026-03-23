@@ -19,6 +19,29 @@ python app.py
 
 Ouvrir [http://localhost:5000](http://localhost:5000).
 
+### Configuration BDD MySQL (SSL)
+
+1. Copier la base d'environnement :
+
+```bash
+copy .env.example .env
+```
+
+2. Mettre à jour `DB_PASSWORD` dans `.env`.
+3. Le certificat CA est déjà fourni dans `certs/aiven-ca.pem`.
+4. Installer les dépendances puis lancer l'app :
+
+```bash
+pip install -r requirements.txt
+python app.py
+```
+
+5. Vérifier la connexion BDD :
+
+```bash
+curl http://localhost:5000/health/db
+```
+
 ## Lancer avec Docker
 
 ```bash

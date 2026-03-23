@@ -6,4 +6,12 @@ services:
     environment:
       - FLASK_DEBUG=false
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - DB_HOST=${DB_HOST:-}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_NAME=${DB_NAME:-}
+      - DB_USER=${DB_USER:-}
+      - DB_PASSWORD=${DB_PASSWORD:-}
+      - DB_SSL_REQUIRED=${DB_SSL_REQUIRED:-true}
+      - DB_SSL_CA_PATH=${DB_SSL_CA_PATH:-certs/aiven-ca.pem}
+      - DB_CONNECT_TIMEOUT=${DB_CONNECT_TIMEOUT:-5}
     restart: unless-stopped
