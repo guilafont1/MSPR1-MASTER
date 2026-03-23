@@ -54,7 +54,7 @@ curl http://localhost:5001/health/db
 
 ```bash
 docker build -t mspr-dashboard .
-docker run --rm -d -p 5001:5000 mspr-dashboard
+docker run --rm -d --env-file .env -p 5001:5000 mspr-dashboard
 echo "Dashboard : http://localhost:5001"
 ```
 
