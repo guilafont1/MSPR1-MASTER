@@ -66,6 +66,8 @@ Puis [http://localhost:5001](http://localhost:5001).
 - `templates/` — Pages HTML (Jinja2)
 - `static/css/style.css` — Styles (thème sombre, responsive)
 - `Document/` — Documents de référence (grilles, règles, sujets) — non servis par l’app
+- `data_initial/` — CSV bruts avant ingestion/traitement
+- `db/schema_mysql.sql` — schéma MySQL (staging -> DWH -> dataset_ml)
 
 ## Pages
 
@@ -83,6 +85,20 @@ Puis [http://localhost:5001](http://localhost:5001).
 - Authentification (coachs / apprenants)
 - Saisie et suivi des évaluations
 - Export des grilles
+
+## ETL : ingestion des CSV vers MySQL
+
+1. Vérifier que tes CSV/Excel bruts sont dans `data_initial/` (structure attendue : `data-presidentielle/`, `population-par-commune-INSEE/`, `revenu-des-francais-a-la-commune-2021/`, `Taux-de-chomage/`).
+2. Lancer l'ETL (depuis le conteneur si tu veux éviter les problèmes de dépendances) :
+
+```bash
+docker compose up --build -d
+docker exec -it mspr1-master-dashboard-1 python modele_prediction/etl_mspr_to_mysql.py
+```
+
+Une fois l'ETL terminé :
+- `dim_commune` est rempli
+- `dataset_ml` est rempli et peut servir à reconstruire `df_wide` et `delta` comme dans `mspr1_master.py`.
 
 ## Licence
 
