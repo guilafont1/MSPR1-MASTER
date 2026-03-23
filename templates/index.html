@@ -1,29 +1,973 @@
-{% extends "base.html" %}
-{% block title %}Accueil — Dashboard MSPR{% endblock %}
-{% block content %}
-<h1 class="page-title">Accueil</h1>
-<p class="page-desc">Tableau de bord MSPR — accès rapide aux évaluations, grilles, règles et sujets.</p>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ElectroSight — Prédiction Électorale</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
 
-<div class="cards">
-    <div class="card">
-        <h2 class="card-title">Évaluations</h2>
-        <p class="card-desc">Grille d’évaluation individuelle par le Coach MSPR.</p>
-        <a href="{{ url_for('evaluations') }}" class="card-link">Voir →</a>
+  <!-- SIDEBAR NAVIGATION -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">⬡</span>
+      <span class="logo-text">Electro<strong>Sight</strong></span>
     </div>
-    <div class="card">
-        <h2 class="card-title">Grilles</h2>
-        <p class="card-desc">Grilles MSPR (Bloc 3, I1 EISI).</p>
-        <a href="{{ url_for('grilles') }}" class="card-link">Voir →</a>
+    <nav class="sidebar-nav">
+      <a href="#dashboard" class="nav-item active" data-view="dashboard">
+        <span class="nav-icon">◈</span>
+        <span>Tableau de Bord</span>
+      </a>
+      <a href="#exploration" class="nav-item" data-view="exploration">
+        <span class="nav-icon">◎</span>
+        <span>Exploration & Corrélations</span>
+      </a>
+      <a href="#prediction" class="nav-item" data-view="prediction">
+        <span class="nav-icon">◐</span>
+        <span>Moteur Prédictif</span>
+      </a>
+      <a href="#governance" class="nav-item" data-view="governance">
+        <span class="nav-icon">◇</span>
+        <span>Qualité & Gouvernance</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="status-dot active"></div>
+      <span class="mono">Modèle v2.4 actif</span>
     </div>
-    <div class="card">
-        <h2 class="card-title">Règles</h2>
-        <p class="card-desc">Règles de validation MSPR.</p>
-        <a href="{{ url_for('regles') }}" class="card-link">Voir →</a>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main-content">
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- VUE 1 · DASHBOARD GLOBAL                   -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="view active" id="view-dashboard">
+      <header class="view-header">
+        <div class="view-tag mono">VUE 01 / 04</div>
+        <h1 class="view-title">État des Lieux</h1>
+        <p class="view-subtitle">Profil socio-économique de la zone analysée</p>
+      </header>
+
+      <!-- KPI STRIP -->
+      <div class="kpi-strip">
+        <div class="kpi-card">
+          <div class="kpi-label mono">Population</div>
+          <div class="kpi-value">218 <span class="kpi-unit">k hab.</span></div>
+          <div class="kpi-trend up">↑ +1.2% / an</div>
+        </div>
+        <div class="kpi-card accent">
+          <div class="kpi-label mono">Taux de Chômage</div>
+          <div class="kpi-value">11.4 <span class="kpi-unit">%</span></div>
+          <div class="kpi-trend down">↓ −0.8pp vs 2022</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label mono">Indice de Sécurité</div>
+          <div class="kpi-value">6.2 <span class="kpi-unit">/ 10</span></div>
+          <div class="kpi-trend neutral">→ stable</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label mono">Revenu Médian</div>
+          <div class="kpi-value">21 <span class="kpi-unit">k€</span></div>
+          <div class="kpi-trend up">↑ +2.1% / an</div>
+        </div>
+        <div class="kpi-card accent-warm">
+          <div class="kpi-label mono">Accuracy Modèle</div>
+          <div class="kpi-value">0.74 <span class="kpi-unit">acc.</span></div>
+          <div class="kpi-trend up">↑ > seuil 0.5</div>
+        </div>
+      </div>
+
+      <!-- MAP + DESCRIPTION ROW -->
+      <div class="row-split">
+        <div class="card card-map">
+          <div class="card-header">
+            <span class="mono card-tag">CARTE INTERACTIVE</span>
+            <span class="card-title">Zone géographique : Département 59 — Nord</span>
+          </div>
+          <div class="map-placeholder">
+            <div class="map-grid"></div>
+            <div class="map-pin" style="left:42%;top:38%">
+              <span class="pin-dot"></span>
+              <span class="pin-label">Lille</span>
+            </div>
+            <div class="map-pin" style="left:62%;top:55%">
+              <span class="pin-dot secondary"></span>
+              <span class="pin-label">Valenciennes</span>
+            </div>
+            <div class="map-pin" style="left:30%;top:60%">
+              <span class="pin-dot secondary"></span>
+              <span class="pin-label">Dunkerque</span>
+            </div>
+            <div class="map-overlay-label">NORD (59)</div>
+          </div>
+        </div>
+
+        <div class="card card-desc">
+          <div class="card-header">
+            <span class="mono card-tag">CONTEXTE</span>
+            <span class="card-title">Pourquoi cette zone ?</span>
+          </div>
+          <p class="desc-text">Le département du <strong>Nord (59)</strong> est l'un des territoires les plus représentatifs des dynamiques socio-économiques françaises. Avec un bassin industriel en reconversion, un taux de chômage supérieur à la moyenne nationale et une population jeune et diversifiée, il constitue un <strong>terrain d'étude idéal</strong> pour modéliser les comportements électoraux.</p>
+          <p class="desc-text">Les indicateurs clés — emploi, sécurité, pouvoir d'achat — y présentent des variations significatives entre communes, permettant au modèle d'identifier des <strong>patterns prédictifs robustes</strong>.</p>
+          <div class="sources-row">
+            <span class="source-badge">INSEE</span>
+            <span class="source-badge">Data.gouv.fr</span>
+            <span class="source-badge">Intérieur</span>
+            <span class="source-badge">SNSSP</span>
+          </div>
+
+          <div class="mini-chart-wrap">
+            <canvas id="chartPopEvolution" height="90"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- EVOLUTION CHART -->
+      <div class="card card-full">
+        <div class="card-header">
+          <span class="mono card-tag">HISTORIQUE</span>
+          <span class="card-title">Évolution des indicateurs socio-économiques (2014–2024)</span>
+        </div>
+        <canvas id="chartSocioEco" height="90"></canvas>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- VUE 2 · EXPLORATION & CORRÉLATIONS         -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="view" id="view-exploration">
+      <header class="view-header">
+        <div class="view-tag mono">VUE 02 / 04</div>
+        <h1 class="view-title">Analyse Exploratoire</h1>
+        <p class="view-subtitle">Corrélations entre indicateurs et résultats électoraux</p>
+      </header>
+
+      <!-- FILTER BAR -->
+      <div class="filter-bar">
+        <span class="mono filter-label">Filtrer par indicateur :</span>
+        <div class="filter-chips">
+          <button class="chip active" data-filter="all">Tous</button>
+          <button class="chip" data-filter="emploi">Emploi</button>
+          <button class="chip" data-filter="securite">Sécurité</button>
+          <button class="chip" data-filter="demographie">Démographie</button>
+          <button class="chip" data-filter="economie">Économie</button>
+        </div>
+      </div>
+
+      <div class="row-split">
+        <!-- HEATMAP -->
+        <div class="card">
+          <div class="card-header">
+            <span class="mono card-tag">HEATMAP</span>
+            <span class="card-title">Matrice de corrélation</span>
+          </div>
+          <div class="heatmap-container">
+            <div class="heatmap-grid" id="heatmapGrid"></div>
+            <div class="heatmap-legend">
+              <span class="mono" style="font-size:0.65rem">−1.0</span>
+              <div class="legend-bar"></div>
+              <span class="mono" style="font-size:0.65rem">+1.0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SCATTER PLOT -->
+        <div class="card">
+          <div class="card-header">
+            <span class="mono card-tag">NUAGE DE POINTS</span>
+            <span class="card-title">Chômage vs Score Gauche (2014–2024)</span>
+          </div>
+          <canvas id="chartScatter" height="200"></canvas>
+        </div>
+      </div>
+
+      <!-- TREND + BAR -->
+      <div class="row-split">
+        <div class="card">
+          <div class="card-header">
+            <span class="mono card-tag">SÉRIES TEMPORELLES</span>
+            <span class="card-title">Évolution indicateur sélectionné</span>
+          </div>
+          <canvas id="chartTrend" height="150"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="mono card-tag">POIDS DES VARIABLES</span>
+            <span class="card-title">Importance des features (Feature Importance)</span>
+          </div>
+          <canvas id="chartFeatureImportance" height="150"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- VUE 3 · MOTEUR PRÉDICTIF                   -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="view" id="view-prediction">
+      <header class="view-header">
+        <div class="view-tag mono">VUE 03 / 04</div>
+        <h1 class="view-title">Moteur Prédictif</h1>
+        <p class="view-subtitle">Résultats du modèle ML & projections électorales</p>
+      </header>
+
+      <!-- ACCURACY GAUGES -->
+      <div class="gauge-strip">
+        <div class="gauge-card">
+          <div class="gauge-wrap">
+            <canvas id="gaugeAccuracy" width="160" height="100"></canvas>
+            <div class="gauge-value">0.74</div>
+          </div>
+          <div class="gauge-label mono">Accuracy Globale</div>
+          <div class="gauge-sub">Seuil requis : 0.50</div>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-wrap">
+            <canvas id="gaugeF1" width="160" height="100"></canvas>
+            <div class="gauge-value">0.71</div>
+          </div>
+          <div class="gauge-label mono">F1-Score</div>
+          <div class="gauge-sub">Équilibre précision/rappel</div>
+        </div>
+        <div class="gauge-card">
+          <div class="gauge-wrap">
+            <canvas id="gaugeAuc" width="160" height="100"></canvas>
+            <div class="gauge-value">0.81</div>
+          </div>
+          <div class="gauge-label mono">AUC-ROC</div>
+          <div class="gauge-sub">Capacité discriminante</div>
+        </div>
+      </div>
+
+      <!-- TIME SERIES PREDICTION -->
+      <div class="card card-full">
+        <div class="card-header">
+          <span class="mono card-tag">PRÉDICTIONS</span>
+          <span class="card-title">Résultats passés → Projections 2025–2027</span>
+          <div class="legend-inline">
+            <span class="legend-line solid"></span><span class="mono legend-text">Historique</span>
+            <span class="legend-line dashed"></span><span class="mono legend-text">Projection</span>
+          </div>
+        </div>
+        <canvas id="chartPrediction" height="100"></canvas>
+      </div>
+
+      <!-- PROBABILITY DISTRIBUTION -->
+      <div class="row-split">
+        <div class="card">
+          <div class="card-header">
+            <span class="mono card-tag">PROBABILITÉS</span>
+            <span class="card-title">Indice de confiance par scénario</span>
+          </div>
+          <canvas id="chartProbabilities" height="180"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="mono card-tag">CONFUSION MATRIX</span>
+            <span class="card-title">Matrice de confusion du modèle</span>
+          </div>
+          <div class="confusion-matrix" id="confusionMatrix"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════ -->
+    <!-- VUE 4 · QUALITÉ & GOUVERNANCE              -->
+    <!-- ══════════════════════════════════════════ -->
+    <section class="view" id="view-governance">
+      <header class="view-header">
+        <div class="view-tag mono">VUE 04 / 04</div>
+        <h1 class="view-title">Qualité & Gouvernance</h1>
+        <p class="view-subtitle">Fiabilité industrielle et conformité du projet</p>
+      </header>
+
+      <!-- DATA HEALTH CARDS -->
+      <div class="health-grid">
+        <div class="health-card">
+          <div class="health-icon">◎</div>
+          <div class="health-label mono">Données nettoyées</div>
+          <div class="health-bar-wrap">
+            <div class="health-bar" style="--pct:94%"></div>
+          </div>
+          <div class="health-pct">94%</div>
+        </div>
+        <div class="health-card">
+          <div class="health-icon">◈</div>
+          <div class="health-label mono">Valeurs manquantes traitées</div>
+          <div class="health-bar-wrap">
+            <div class="health-bar" style="--pct:87%"></div>
+          </div>
+          <div class="health-pct">87%</div>
+        </div>
+        <div class="health-card">
+          <div class="health-icon">⬡</div>
+          <div class="health-label mono">Couverture temporelle</div>
+          <div class="health-bar-wrap">
+            <div class="health-bar" style="--pct:100%"></div>
+          </div>
+          <div class="health-pct">100%</div>
+        </div>
+        <div class="health-card">
+          <div class="health-icon">◐</div>
+          <div class="health-label mono">Sources validées</div>
+          <div class="health-bar-wrap">
+            <div class="health-bar" style="--pct:100%"></div>
+          </div>
+          <div class="health-pct">4 / 4</div>
+        </div>
+      </div>
+
+      <!-- ETL STATUS + SOURCES -->
+      <div class="row-split">
+        <div class="card">
+          <div class="card-header">
+            <span class="mono card-tag">PIPELINE ETL</span>
+            <span class="card-title">Statut des étapes de traitement</span>
+          </div>
+          <div class="pipeline-steps">
+            <div class="step done">
+              <span class="step-num mono">01</span>
+              <span class="step-name">Extraction Open Data</span>
+              <span class="step-status">✓ OK</span>
+            </div>
+            <div class="step done">
+              <span class="step-num mono">02</span>
+              <span class="step-name">Transformation & Nettoyage</span>
+              <span class="step-status">✓ OK</span>
+            </div>
+            <div class="step done">
+              <span class="step-num mono">03</span>
+              <span class="step-name">Chargement BDD</span>
+              <span class="step-status">✓ OK</span>
+            </div>
+            <div class="step done">
+              <span class="step-num mono">04</span>
+              <span class="step-name">Entraînement ML</span>
+              <span class="step-status">✓ OK</span>
+            </div>
+            <div class="step active">
+              <span class="step-num mono">05</span>
+              <span class="step-name">Inférence & API</span>
+              <span class="step-status blink">⬡ Live</span>
+            </div>
+          </div>
+
+          <div class="card-header" style="margin-top:1.5rem">
+            <span class="mono card-tag">SOURCES</span>
+            <span class="card-title">Provenance des données</span>
+          </div>
+          <canvas id="chartSources" height="130"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="mono card-tag">DATA HEALTH</span>
+            <span class="card-title">Qualité par dataset</span>
+          </div>
+          <canvas id="chartDataHealth" height="200"></canvas>
+
+          <!-- RGPD BANNER -->
+          <div class="rgpd-banner">
+            <span class="rgpd-icon">◈</span>
+            <div class="rgpd-content">
+              <div class="rgpd-title">Conformité RGPD</div>
+              <div class="rgpd-text mono">Toutes les données sont agrégées à l'échelle communale. Aucune donnée nominative ou identifiante n'est collectée, traitée ou stockée. Traitement conforme au RGPD (Art. 5 & 6) — Anonymisation certifiée.</div>
+            </div>
+            <span class="rgpd-check">✓</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main><!-- /main-content -->
+
+  <!-- ══════════════════════════════════════════ -->
+  <!-- MODAL EXPAND OVERLAY                       -->
+  <!-- ══════════════════════════════════════════ -->
+  <div class="expand-overlay" id="expandOverlay">
+    <div class="expand-modal">
+      <div class="expand-modal-header">
+        <span class="expand-modal-title mono" id="expandTitle"></span>
+        <button class="expand-close" id="expandClose" title="Fermer">✕</button>
+      </div>
+      <div class="expand-modal-body" id="expandBody"></div>
     </div>
-    <div class="card">
-        <h2 class="card-title">Sujets</h2>
-        <p class="card-desc">Sujets MSPR (Bloc 3, I1 EISI).</p>
-        <a href="{{ url_for('sujets') }}" class="card-link">Voir →</a>
-    </div>
-</div>
-{% endblock %}
+  </div>
+
+  <script>
+  // ────────────────────────────────────────────────────────────────
+  // NAVIGATION
+  // ────────────────────────────────────────────────────────────────
+  const navItems = document.querySelectorAll('.nav-item');
+  const views    = document.querySelectorAll('.view');
+
+  navItems.forEach(item => {
+    item.addEventListener('click', e => {
+      e.preventDefault();
+      const target = item.dataset.view;
+      navItems.forEach(n => n.classList.remove('active'));
+      views.forEach(v => v.classList.remove('active'));
+      item.classList.add('active');
+      document.getElementById(`view-${target}`).classList.add('active');
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // CHART DEFAULTS
+  // ────────────────────────────────────────────────────────────────
+  Chart.defaults.color = '#8899aa';
+  Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+  Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+  Chart.defaults.font.size = 11;
+
+  const PALETTE = {
+    gauche:   '#4fc3f7',
+    droite:   '#ef5350',
+    centre:   '#ab47bc',
+    extreme:  '#ff7043',
+    grid:     'rgba(255,255,255,0.06)',
+    accent:   '#00e5ff',
+    warn:     '#ffab40',
+    ok:       '#69f0ae',
+  };
+
+  // ────────────────────────────────────────────────────────────────
+  // VUE 1 · Mini Pop
+  // ────────────────────────────────────────────────────────────────
+  new Chart(document.getElementById('chartPopEvolution'), {
+    type: 'line',
+    data: {
+      labels: ['2014','2016','2018','2020','2022','2024'],
+      datasets: [{
+        data: [208, 210, 212, 213, 215, 218],
+        borderColor: PALETTE.accent,
+        backgroundColor: 'rgba(0,229,255,0.08)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointBackgroundColor: PALETTE.accent,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: { enabled: true }},
+      scales: {
+        x: { grid: { color: PALETTE.grid }},
+        y: { grid: { color: PALETTE.grid }, ticks: { callback: v => v+'k' }}
+      }
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // VUE 1 · Socio-Éco Multi-line
+  // ────────────────────────────────────────────────────────────────
+  new Chart(document.getElementById('chartSocioEco'), {
+    type: 'line',
+    data: {
+      labels: ['2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024'],
+      datasets: [
+        {
+          label: 'Chômage (%)',
+          data: [14.2, 13.8, 13.5, 12.9, 12.4, 12.0, 13.1, 12.8, 12.2, 11.8, 11.4],
+          borderColor: PALETTE.warn, backgroundColor: 'transparent',
+          borderWidth: 2, tension: 0.3, pointRadius: 3,
+        },
+        {
+          label: 'Sécurité (score /10)',
+          data: [5.1, 5.3, 5.6, 5.8, 6.0, 6.1, 5.9, 6.0, 6.1, 6.2, 6.2],
+          borderColor: PALETTE.ok, backgroundColor: 'transparent',
+          borderWidth: 2, tension: 0.3, pointRadius: 3,
+        },
+        {
+          label: 'Revenu médian (k€)',
+          data: [17.2, 17.8, 18.3, 18.9, 19.4, 19.9, 19.7, 20.2, 20.8, 21.3, 21.0],
+          borderColor: PALETTE.accent, backgroundColor: 'transparent',
+          borderWidth: 2, tension: 0.3, pointRadius: 3,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true, position: 'top', labels: { boxWidth: 12, usePointStyle: true }},
+      },
+      scales: {
+        x: { grid: { color: PALETTE.grid }},
+        y: { grid: { color: PALETTE.grid }},
+      }
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // VUE 2 · HEATMAP
+  // ────────────────────────────────────────────────────────────────
+  const labels = ['Chômage','Sécurité','Revenu','Pauvreté','Migration','Éducation'];
+  const parties = ['Gauche','Droite','Centre','Extrêmes'];
+  const corrData = [
+    [0.72, -0.61, -0.68, 0.81, 0.44, -0.55],
+    [-0.65, 0.58, 0.71, -0.73, -0.39, 0.62],
+    [-0.31, 0.22, 0.45, -0.28, 0.11, 0.38],
+    [0.83, -0.74, -0.78, 0.88, 0.52, -0.60],
+  ];
+
+  function corrToColor(v) {
+    const r = v > 0
+      ? `rgba(79,195,247,${Math.abs(v)})`
+      : `rgba(239,83,80,${Math.abs(v)})`;
+    return r;
+  }
+
+  const grid = document.getElementById('heatmapGrid');
+  grid.style.gridTemplateColumns = `80px repeat(${labels.length}, 1fr)`;
+
+  // Header row
+  grid.innerHTML += `<div class="hm-cell hm-header"></div>`;
+  labels.forEach(l => {
+    grid.innerHTML += `<div class="hm-cell hm-header mono">${l}</div>`;
+  });
+
+  corrData.forEach((row, ri) => {
+    grid.innerHTML += `<div class="hm-cell hm-row-label mono">${parties[ri]}</div>`;
+    row.forEach(v => {
+      grid.innerHTML += `<div class="hm-cell hm-data" style="background:${corrToColor(v)}" title="${v.toFixed(2)}">${v.toFixed(2)}</div>`;
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // VUE 2 · SCATTER
+  // ────────────────────────────────────────────────────────────────
+  const scatterPoints = [
+    {x:14.2,y:42},{x:13.8,y:43},{x:13.5,y:44},{x:12.9,y:42},
+    {x:12.4,y:46},{x:12.0,y:45},{x:13.1,y:41},{x:12.8,y:43},
+    {x:12.2,y:44},{x:11.8,y:47},{x:11.4,y:48}
+  ];
+  new Chart(document.getElementById('chartScatter'), {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Communes',
+        data: scatterPoints,
+        backgroundColor: 'rgba(79,195,247,0.6)',
+        borderColor: PALETTE.gauche,
+        pointRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }},
+      scales: {
+        x: { title: { display: true, text: 'Taux chômage (%)' }, grid: { color: PALETTE.grid }},
+        y: { title: { display: true, text: 'Score Gauche (%)' }, grid: { color: PALETTE.grid }},
+      }
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // VUE 2 · TREND
+  // ────────────────────────────────────────────────────────────────
+  new Chart(document.getElementById('chartTrend'), {
+    type: 'line',
+    data: {
+      labels: ['2014','2015','2016','2017','2018','2019','2020','2021','2022','2023','2024'],
+      datasets: [{
+        label: 'Chômage (%)',
+        data: [14.2, 13.8, 13.5, 12.9, 12.4, 12.0, 13.1, 12.8, 12.2, 11.8, 11.4],
+        borderColor: PALETTE.warn,
+        backgroundColor: 'rgba(255,171,64,0.1)',
+        borderWidth: 2, fill: true, tension: 0.4, pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }},
+      scales: {
+        x: { grid: { color: PALETTE.grid }},
+        y: { grid: { color: PALETTE.grid }},
+      }
+    }
+  });
+
+  // VUE 2 · Feature Importance
+  new Chart(document.getElementById('chartFeatureImportance'), {
+    type: 'bar',
+    data: {
+      labels: ['Pauvreté','Chômage','Sécurité','Revenu','Migration','Éducation','Âge médian'],
+      datasets: [{
+        data: [0.28, 0.22, 0.18, 0.13, 0.09, 0.07, 0.03],
+        backgroundColor: [
+          'rgba(0,229,255,0.85)','rgba(0,229,255,0.7)','rgba(0,229,255,0.55)',
+          'rgba(0,229,255,0.45)','rgba(0,229,255,0.35)','rgba(0,229,255,0.25)',
+          'rgba(0,229,255,0.15)'
+        ],
+        borderRadius: 4,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false }},
+      scales: {
+        x: { grid: { color: PALETTE.grid }, max: 0.35 },
+        y: { grid: { display: false }},
+      }
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // VUE 3 · GAUGE (semi-circle via arc)
+  // ────────────────────────────────────────────────────────────────
+  function drawGauge(canvasId, value, color) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width / 2, cy = canvas.height - 10;
+    const r = 60;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Track
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, Math.PI, 0);
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Value arc
+    const end = Math.PI + value * Math.PI;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, Math.PI, end);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    // Threshold at 0.5
+    const threshAngle = Math.PI + 0.5 * Math.PI;
+    const tx = cx + (r+14) * Math.cos(threshAngle);
+    const ty = cy + (r+14) * Math.sin(threshAngle);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r+2, threshAngle-0.04, threshAngle+0.04);
+    ctx.strokeStyle = PALETTE.warn;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+  }
+
+  drawGauge('gaugeAccuracy', 0.74, PALETTE.ok);
+  drawGauge('gaugeF1',       0.71, PALETTE.accent);
+  drawGauge('gaugeAuc',      0.81, PALETTE.gauche);
+
+  // ────────────────────────────────────────────────────────────────
+  // VUE 3 · PREDICTION TIME SERIES
+  // ────────────────────────────────────────────────────────────────
+  const years = ['2012','2014','2017','2019','2022','2025*','2026*','2027*'];
+  const historical = [38.2, 40.1, 42.3, 41.8, 43.5, null, null, null];
+  const predicted  = [null, null, null, null, 43.5, 45.1, 46.3, 44.8];
+
+  new Chart(document.getElementById('chartPrediction'), {
+    type: 'line',
+    data: {
+      labels: years,
+      datasets: [
+        {
+          label: 'Résultats historiques (Gauche)',
+          data: historical,
+          borderColor: PALETTE.gauche,
+          backgroundColor: 'rgba(79,195,247,0.08)',
+          borderWidth: 2.5, fill: true, tension: 0.4,
+          pointRadius: 5, pointBackgroundColor: PALETTE.gauche,
+          spanGaps: false,
+        },
+        {
+          label: 'Projection modèle (Gauche)',
+          data: predicted,
+          borderColor: PALETTE.gauche,
+          backgroundColor: 'rgba(79,195,247,0.04)',
+          borderWidth: 2.5, borderDash: [6, 4],
+          fill: true, tension: 0.4,
+          pointRadius: 5, pointBackgroundColor: PALETTE.gauche,
+          spanGaps: false,
+        },
+        {
+          label: 'Résultats historiques (Droite)',
+          data: [32.1, 30.5, 28.3, 29.7, 27.8, null, null, null],
+          borderColor: PALETTE.droite,
+          borderWidth: 2.5, backgroundColor: 'transparent',
+          tension: 0.4, pointRadius: 4,
+          spanGaps: false,
+        },
+        {
+          label: 'Projection modèle (Droite)',
+          data: [null,null,null,null, 27.8, 26.4, 25.9, 27.1],
+          borderColor: PALETTE.droite,
+          borderWidth: 2.5, borderDash: [6, 4],
+          backgroundColor: 'transparent', tension: 0.4, pointRadius: 4,
+          spanGaps: false,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true, position: 'top', labels: { boxWidth: 14, usePointStyle: true }},
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        x: { grid: { color: PALETTE.grid }},
+        y: {
+          grid: { color: PALETTE.grid },
+          min: 20, max: 55,
+          ticks: { callback: v => v+'%' }
+        }
+      }
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // VUE 3 · PROBABILITIES
+  // ────────────────────────────────────────────────────────────────
+  new Chart(document.getElementById('chartProbabilities'), {
+    type: 'bar',
+    data: {
+      labels: ['Victoire Gauche', 'Victoire Droite', 'Victoire Centre', 'Extrêmes 1er'],
+      datasets: [
+        {
+          label: '2025',
+          data: [52, 28, 14, 6],
+          backgroundColor: 'rgba(0,229,255,0.75)',
+          borderRadius: 4,
+        },
+        {
+          label: '2026',
+          data: [55, 24, 13, 8],
+          backgroundColor: 'rgba(79,195,247,0.5)',
+          borderRadius: 4,
+        },
+        {
+          label: '2027',
+          data: [49, 27, 15, 9],
+          backgroundColor: 'rgba(171,71,188,0.6)',
+          borderRadius: 4,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true, position: 'top', labels: { boxWidth: 12 }},
+      },
+      scales: {
+        x: { grid: { display: false }},
+        y: {
+          grid: { color: PALETTE.grid },
+          max: 70,
+          ticks: { callback: v => v+'%' }
+        }
+      }
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // VUE 3 · CONFUSION MATRIX
+  // ────────────────────────────────────────────────────────────────
+  const cm = document.getElementById('confusionMatrix');
+  const cmData = [[42,5,3],[6,38,4],[2,3,31]];
+  const cmLabels = ['Gauche','Droite','Centre'];
+  let cmHtml = `<div class="cm-grid" style="grid-template-columns: 60px repeat(3,1fr)">`;
+  cmHtml += `<div class="cm-cell cm-corner mono"></div>`;
+  cmLabels.forEach(l => cmHtml += `<div class="cm-cell cm-header mono">${l}</div>`);
+  cmData.forEach((row, ri) => {
+    cmHtml += `<div class="cm-cell cm-row-label mono">${cmLabels[ri]}</div>`;
+    row.forEach((v, ci) => {
+      const isDiag = ri === ci;
+      cmHtml += `<div class="cm-cell cm-data ${isDiag?'cm-diag':''} mono">${v}</div>`;
+    });
+  });
+  cmHtml += `</div>`;
+  cmHtml += `<div class="cm-legend mono">Réel → Colonnes / Prédit → Lignes</div>`;
+  cm.innerHTML = cmHtml;
+
+  // ────────────────────────────────────────────────────────────────
+  // VUE 4 · SOURCES DOUGHNUT
+  // ────────────────────────────────────────────────────────────────
+  new Chart(document.getElementById('chartSources'), {
+    type: 'doughnut',
+    data: {
+      labels: ['INSEE (Démographie)','Data.gouv (Élections)','Intérieur (Sécurité)','Pôle Emploi'],
+      datasets: [{
+        data: [35, 28, 22, 15],
+        backgroundColor: [PALETTE.accent, PALETTE.gauche, PALETTE.ok, PALETTE.warn],
+        borderWidth: 0,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '62%',
+      plugins: {
+        legend: { display: true, position: 'right', labels: { boxWidth: 12, padding: 10 }},
+      }
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // VUE 4 · DATA HEALTH RADAR
+  // ────────────────────────────────────────────────────────────────
+  new Chart(document.getElementById('chartDataHealth'), {
+    type: 'radar',
+    data: {
+      labels: ['Complétude','Cohérence','Fraîcheur','Traçabilité','Exactitude','Accessibilité'],
+      datasets: [
+        {
+          label: 'Score actuel',
+          data: [94, 88, 95, 82, 90, 100],
+          backgroundColor: 'rgba(0,229,255,0.12)',
+          borderColor: PALETTE.accent,
+          borderWidth: 2, pointBackgroundColor: PALETTE.accent, pointRadius: 4,
+        },
+        {
+          label: 'Seuil requis',
+          data: [70, 70, 70, 70, 70, 70],
+          backgroundColor: 'transparent',
+          borderColor: 'rgba(255,171,64,0.4)',
+          borderWidth: 1.5, borderDash: [4,4],
+          pointRadius: 0,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12 }}},
+      scales: {
+        r: {
+          min: 0, max: 100,
+          grid: { color: 'rgba(255,255,255,0.07)' },
+          angleLines: { color: 'rgba(255,255,255,0.07)' },
+          ticks: { backdropColor: 'transparent', stepSize: 25 },
+          pointLabels: { font: { family: "'IBM Plex Mono'", size: 10 }}
+        }
+      }
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // FILTER CHIPS
+  // ────────────────────────────────────────────────────────────────
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // EXPAND BUTTON — inject into every .card-header
+  // ────────────────────────────────────────────────────────────────
+  document.querySelectorAll('.card').forEach(card => {
+    const header = card.querySelector('.card-header');
+    if (!header) return;
+
+    const btn = document.createElement('button');
+    btn.className = 'expand-btn';
+    btn.title = 'Agrandir';
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+      <path d="M1 5V1H5M8 1H12V5M12 8V12H8M5 12H1V8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+    header.appendChild(btn);
+
+    btn.addEventListener('click', () => {
+      const titleEl = header.querySelector('.card-title');
+      const title = titleEl ? titleEl.textContent : 'Graphique';
+      openExpand(card, title);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // EXPAND MODAL LOGIC
+  // ────────────────────────────────────────────────────────────────
+  const overlay  = document.getElementById('expandOverlay');
+  const modalBody = document.getElementById('expandBody');
+  const modalTitle = document.getElementById('expandTitle');
+  const closeBtn  = document.getElementById('expandClose');
+
+  // Store original parent and next sibling to restore later
+  let originalParent = null;
+  let originalNext   = null;
+  let clonedNode     = null;
+
+  function openExpand(card, title) {
+    modalTitle.textContent = title;
+    modalBody.innerHTML = '';
+
+    // Clone the card inner content (minus header)
+    clonedNode = card.cloneNode(true);
+    // Remove the expand btn from clone
+    const cloneBtn = clonedNode.querySelector('.expand-btn');
+    if (cloneBtn) cloneBtn.remove();
+    // Remove card header from clone (already shown in modal header)
+    const cloneHeader = clonedNode.querySelector('.card-header');
+    if (cloneHeader) cloneHeader.remove();
+
+    clonedNode.classList.add('expand-card-clone');
+    modalBody.appendChild(clonedNode);
+
+    // Re-render any canvas inside modal using Chart.js
+    const originalCanvases = card.querySelectorAll('canvas');
+    const cloneCanvases    = clonedNode.querySelectorAll('canvas');
+
+    originalCanvases.forEach((origCanvas, i) => {
+      const origChart = Chart.getChart(origCanvas);
+      if (!origChart) return;
+      const cloneCanvas = cloneCanvases[i];
+      if (!cloneCanvas) return;
+      cloneCanvas.removeAttribute('height');
+      cloneCanvas.removeAttribute('style');
+      new Chart(cloneCanvas, {
+        type:    origChart.config.type,
+        data:    JSON.parse(JSON.stringify(origChart.config.data)),
+        options: Object.assign({}, origChart.config.options, {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 400 },
+        }),
+      });
+    });
+
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeExpand() {
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+    // Destroy cloned charts to avoid memory leaks
+    if (clonedNode) {
+      clonedNode.querySelectorAll('canvas').forEach(c => {
+        const ch = Chart.getChart(c);
+        if (ch) ch.destroy();
+      });
+    }
+    modalBody.innerHTML = '';
+    clonedNode = null;
+  }
+
+  closeBtn.addEventListener('click', closeExpand);
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) closeExpand();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeExpand();
+  });
+  </script>
+</body>
+</html>
