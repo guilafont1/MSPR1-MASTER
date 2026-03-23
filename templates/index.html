@@ -388,29 +388,24 @@
       <!-- KPI STRIP — uniquement données du modèle réel -->
       <div class="kpi-strip">
         <div class="kpi-card accent">
-          <div class="kpi-label mono">β₁ — Score 2017</div>
-          <div class="kpi-value" id="kpi-b1">…</div>
-          <div class="kpi-trend up">Inertie électorale</div>
+          <div class="kpi-label mono">R² test (80/20)</div>
+          <div class="kpi-value" id="kpi-r2">…</div>
+          <div class="kpi-trend neutral">coefficient de détermination</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label mono">β₂ — Delta Δ</div>
-          <div class="kpi-value" id="kpi-b2">…</div>
-          <div class="kpi-trend down">Impact variation (négatif)</div>
+          <div class="kpi-label mono">RMSE</div>
+          <div class="kpi-value" id="kpi-rmse">…</div>
+          <div class="kpi-trend neutral">erreur quadratique moyenne</div>
         </div>
         <div class="kpi-card">
-          <div class="kpi-label mono">β₀ — Intercept</div>
-          <div class="kpi-value" id="kpi-b0">…</div>
-          <div class="kpi-trend neutral">Constante</div>
+          <div class="kpi-label mono">MAE</div>
+          <div class="kpi-value" id="kpi-mae">…</div>
+          <div class="kpi-trend neutral">erreur absolue moyenne</div>
         </div>
         <div class="kpi-card accent-warm">
-          <div class="kpi-label mono">Plage prédite (Δ=0)</div>
-          <div class="kpi-value">7.3%<span class="kpi-unit"> – 75.4%</span></div>
-          <div class="kpi-trend info">score_2017 ∈ [0 ; 1]</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label mono">Features</div>
-          <div class="kpi-value">2 <span class="kpi-unit">vars.</span></div>
-          <div class="kpi-trend neutral">score_2017 · delta</div>
+          <div class="kpi-label mono">N échantillons</div>
+          <div class="kpi-value" id="kpi-n">…</div>
+          <div class="kpi-trend info">communes avec 2012/2017/2022</div>
         </div>
       </div>
 
@@ -422,12 +417,22 @@
             <span class="card-title">Zone géographique : France entière</span>
           </div>
           <div id="franceMap" class="leaflet-map"></div>
+          <div class="top-evolution-block" style="margin-top:1rem">
+            <div class="mono" style="color:var(--muted);font-size:0.75rem;margin-bottom:0.5rem">
+              KPI 2 — Top 10 évolutions (2022 − 2017)
+            </div>
+            <div id="topEvolutionBars"></div>
+          </div>
         </div>
 
         <div class="card">
           <div class="card-header">
             <span class="mono card-tag">MODÈLE</span>
-            <span class="card-title">Description du modèle chargé</span>
+            <span class="card-title">MODÈLE — KPIs (DB)</span>
+          </div>
+          <div style="display:flex;gap:0.8rem;align-items:center;padding:0 1rem 0.75rem 1rem;margin-top:-0.25rem">
+            <button class="predict-btn" id="btnModelKpi" type="button">KPIs</button>
+            <button class="predict-btn" id="btnModelCoeff" type="button" style="opacity:0.6;background:var(--surface2);border:1px solid var(--border);color:var(--text)">Coefficients</button>
           </div>
           <table class="model-table">
             <thead>
@@ -529,8 +534,8 @@
       <div class="row-split">
         <div class="card">
           <div class="card-header">
-            <span class="mono card-tag">SENSIBILITÉ AU DELTA</span>
-            <span class="card-title">Impact de Δ sur ŷ — 3 profils score 2017 (calculé depuis modèle)</span>
+            <span class="mono card-tag">KPI 1 — SCORE RN MOYEN</span>
+            <span class="card-title">Évolution temporelle (moyenne score_rn par année)</span>
           </div>
           <canvas id="chartSensitivity" height="180"></canvas>
         </div>
@@ -557,16 +562,16 @@
       <div class="row-split">
         <div class="card">
           <div class="card-header">
-            <span class="mono card-tag">POIDS DES FEATURES</span>
-            <span class="card-title">Coefficients absolus |β| — modèle réel</span>
+            <span class="mono card-tag">CORRÉLATIONS 2022</span>
+            <span class="card-title">corr(score_rn, variables socio-éco)</span>
           </div>
           <canvas id="chartFeatureImportance" height="150"></canvas>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <span class="mono card-tag">CONTRIBUTION RELATIVE</span>
-            <span class="card-title">Part de chaque coefficient dans |β₁| + |β₂|</span>
+            <span class="mono card-tag">TOP COMMUNES</span>
+            <span class="card-title">Top 10 score RN en 2022</span>
           </div>
           <canvas id="chartCoefShare" height="150"></canvas>
         </div>
@@ -603,26 +608,26 @@
         <div class="health-card">
           <div class="health-icon">◎</div>
           <div class="health-label mono">Données nettoyées</div>
-          <div class="health-bar-wrap"><div class="health-bar" style="--pct:94%"></div></div>
-          <div class="health-pct">94%</div>
+          <div class="health-bar-wrap"><div class="health-bar" id="healthBarDataCleaned" style="--pct:94%"></div></div>
+          <div class="health-pct" id="healthPctDataCleaned">94%</div>
         </div>
         <div class="health-card">
           <div class="health-icon">◈</div>
           <div class="health-label mono">Valeurs manquantes traitées</div>
-          <div class="health-bar-wrap"><div class="health-bar" style="--pct:87%"></div></div>
-          <div class="health-pct">87%</div>
+          <div class="health-bar-wrap"><div class="health-bar" id="healthBarMissingHandled" style="--pct:87%"></div></div>
+          <div class="health-pct" id="healthPctMissingHandled">87%</div>
         </div>
         <div class="health-card">
           <div class="health-icon">⬡</div>
           <div class="health-label mono">Couverture temporelle</div>
-          <div class="health-bar-wrap"><div class="health-bar" style="--pct:100%"></div></div>
-          <div class="health-pct">100%</div>
+          <div class="health-bar-wrap"><div class="health-bar" id="healthBarTemporalCoverage" style="--pct:100%"></div></div>
+          <div class="health-pct" id="healthPctTemporalCoverage">100%</div>
         </div>
         <div class="health-card">
           <div class="health-icon">◐</div>
           <div class="health-label mono">Sources validées</div>
-          <div class="health-bar-wrap"><div class="health-bar" style="--pct:100%"></div></div>
-          <div class="health-pct">4 / 4</div>
+          <div class="health-bar-wrap"><div class="health-bar" id="healthBarSourcesValidated" style="--pct:100%"></div></div>
+          <div class="health-pct" id="healthPctSourcesValidated">4 / 4</div>
         </div>
       </div>
 
@@ -765,36 +770,165 @@
       html: `<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;border:2px solid rgba(255,255,255,0.6);box-shadow:0 0 8px ${color}"></div>`,
       iconSize: [size, size], iconAnchor: [size/2, size/2],
     });
-    L.marker([lat, lng], { icon })
-     .bindTooltip(`<span style="font-family:'IBM Plex Mono',monospace;font-size:11px">${name}</span>`, { permanent: true, direction: 'top', offset: [0, -8], className: 'map-tooltip' })
-     .addTo(map);
+    const marker = L.marker([lat, lng], { icon })
+      .bindTooltip(
+        `<span style="font-family:'IBM Plex Mono',monospace;font-size:11px">${name}</span>`,
+        { permanent: true, direction: 'top', offset: [0, -8], className: 'map-tooltip' }
+      )
+      .addTo(map);
+    return marker;
   }
-  cityMarker(48.8566, 2.3522, 'Paris', true);
-  cityMarker(45.764, 4.8357, 'Lyon');
-  cityMarker(43.2965, 5.3698, 'Marseille');
-  cityMarker(43.6047, 1.4442, 'Toulouse');
-  cityMarker(44.8378, -0.5792, 'Bordeaux');
-  cityMarker(47.2184, -1.5536, 'Nantes');
-  cityMarker(48.5734, 7.7521, 'Strasbourg');
-  cityMarker(50.6292, 3.0573, 'Lille');
+
+  // Grandes villes affichées sur la carte (tooltips et graphique alimentés depuis la BDD)
+  const bigCities = [
+    { name: 'Paris',       lat: 48.8566, lng: 2.3522,  primary: true },
+    { name: 'Lyon',        lat: 45.7640, lng: 4.8357 },
+    { name: 'Marseille',   lat: 43.2965, lng: 5.3698 },
+    { name: 'Toulouse',    lat: 43.6047, lng: 1.4442 },
+    { name: 'Bordeaux',    lat: 44.8378, lng: -0.5792 },
+    { name: 'Nantes',      lat: 47.2184, lng: -1.5536 },
+    { name: 'Strasbourg',  lat: 48.5734, lng: 7.7521 },
+    { name: 'Lille',       lat: 50.6292, lng: 3.0573 },
+  ];
+  const cityMarkers = {};
+  bigCities.forEach(c => { cityMarkers[c.name] = cityMarker(c.lat, c.lng, c.name, !!c.primary); });
+
+  function renderCitiesTrendChart(cities) {
+    const canvas = document.getElementById('chartPredictionDetail');
+    if (!canvas || !cities || cities.length === 0) return;
+
+    const colors = [P.accent, P.blue, P.ok, P.warn, P.purple, '#4fc3f7', '#ab47bc', '#00e5ff'];
+    const labels = ['2012', '2017', '2022', '2027'];
+
+    const datasets = cities.map((c, i) => ({
+      label: c.name,
+      data: [
+        c.score_2012 * 100,
+        c.score_2017 * 100,
+        c.score_2022 * 100,
+        c.prediction_2027 * 100,
+      ],
+      borderColor: colors[i % colors.length],
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      tension: 0.25,
+      pointRadius: 2,
+    }));
+
+    // Détruit le chart si déjà créé
+    const existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
+
+    new Chart(canvas, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: true, position: 'top', labels: { boxWidth: 10, usePointStyle: true } },
+          tooltip: {
+            callbacks: { label: ctx => `${ctx.dataset.label} : ${ctx.raw.toFixed(2)}%` }
+          }
+        },
+        scales: {
+          x: { grid: { color: P.grid } },
+          y: { grid: { color: P.grid }, ticks: { callback: v => v + '%' }, min: 0, max: 100 },
+        }
+      }
+    });
+  }
+
+  async function initCitiesPredictions() {
+    try {
+      const res = await fetch('/api/cities_predictions', { method: 'GET' });
+      const payload = await res.json();
+      if (!payload || payload.status !== 'ok' || !Array.isArray(payload.cities)) return;
+
+      const cities = payload.cities;
+      // Tooltips + graphique d’évolution
+      cities.forEach(c => {
+        const marker = cityMarkers[c.name];
+        if (!marker) return;
+
+        // Colorise le marqueur selon l'évolution RN (Δ = 2022 − 2017)
+        const evolutionPctPts = c.delta * 100;
+        const color = evolutionPctPts >= 0 ? P.ok : P.warn;
+        const clamped = Math.min(18, 9 + Math.abs(evolutionPctPts) * 0.25); // taille proportionnelle
+        const icon = L.divIcon({
+          className: '',
+          html: `<div style="width:${clamped}px;height:${clamped}px;background:${color};border-radius:50%;border:2px solid rgba(255,255,255,0.6);box-shadow:0 0 10px ${color}"></div>`,
+          iconSize: [clamped, clamped],
+          iconAnchor: [clamped / 2, clamped / 2],
+        });
+        marker.setIcon(icon);
+
+        const tooltipHtml =
+          `<div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.25">
+            <div style="font-weight:700;color:var(--text)">${c.name}</div>
+            <div style="color:var(--muted)">2012 : ${(c.score_2012*100).toFixed(1)}%</div>
+            <div style="color:var(--muted)">2017 : ${(c.score_2017*100).toFixed(1)}%</div>
+            <div style="color:var(--muted)">2022 : ${(c.score_2022*100).toFixed(1)}%</div>
+            <div style="color:var(--ok)">ŷ 2027 : ${(c.prediction_2027*100).toFixed(1)}%</div>
+            <div style="color:var(--warn)">Δ : ${(c.delta*100).toFixed(1)} pts</div>
+          </div>`;
+        marker.getTooltip()?.setContent(tooltipHtml);
+      });
+
+      renderCitiesTrendChart(cities);
+    } catch (e) {
+      // Silencieux : si la BDD n’est pas accessible, on garde juste les noms.
+    }
+  }
+
+  async function initKpiTopEvolutionBars() {
+    const container = document.getElementById('topEvolutionBars');
+    if (!container) return;
+    try {
+      const res = await fetch('/api/kpi_top_evolution', { method: 'GET' });
+      const payload = await res.json();
+      if (!payload || payload.status !== 'ok' || !Array.isArray(payload.top)) return;
+
+      const top = payload.top;
+      const maxAbs = Math.max(...top.map(t => Math.abs(t.evolution)), 0.000001);
+
+      container.innerHTML = top.map((t, idx) => {
+        const deltaPts = t.evolution * 100;
+        const pct = (Math.abs(t.evolution) / maxAbs) * 100;
+        const barColor = deltaPts >= 0 ? P.ok : P.warn;
+        const sign = deltaPts >= 0 ? '+' : '';
+        return `
+          <div style="display:flex;gap:10px;align-items:center;margin:8px 0">
+            <div style="width:34px;color:var(--muted);font-size:0.7rem;text-align:right">${idx + 1}</div>
+            <div style="flex:1">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem;color:var(--text);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                ${t.nom_commune}
+              </div>
+              <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:999px;overflow:hidden">
+                <div style="height:100%;width:${pct}%;background:${barColor};"></div>
+              </div>
+            </div>
+            <div style="width:78px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--muted)">
+              ${sign}${deltaPts.toFixed(1)} pts
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      container.textContent = 'Données indisponibles.';
+    }
+  }
+
   map.setMaxBounds([[41.3, -5.5], [51.2, 10.0]]);
 
   // ── INIT KPIs + TABLE + EQUATION ──────────────────────────────────────────
   function initDashboard() {
-    document.getElementById('kpi-b1').innerHTML = `${MODEL.coef_2017.toFixed(4)} <span class="kpi-unit"></span>`;
-    document.getElementById('kpi-b2').innerHTML = `${MODEL.coef_delta.toFixed(4)} <span class="kpi-unit"></span>`;
-    document.getElementById('kpi-b0').innerHTML = `${MODEL.intercept.toFixed(4)} <span class="kpi-unit"></span>`;
-
-    // Table
     const tbody = document.getElementById('modelTableBody');
-    const rows = [
-      ['β₀ (intercept)', 'intercept', MODEL.intercept.toFixed(6), 'Score de base (score_2017 = 0, Δ = 0)'],
-      ['β₁ (score_2017)', 'feature', MODEL.coef_2017.toFixed(6), '+0.681 pt de score par pt de score 2017'],
-      ['β₂ (delta)', 'feature', MODEL.coef_delta.toFixed(6), '−0.062 pt par unité de Δ (effet négatif)'],
-    ];
-    tbody.innerHTML = rows.map(([name, type, val, interp]) => {
+    if (!tbody) return;
+
+    const renderRows = (rows) => rows.map(([name, type, val, interp]) => {
       const tagClass = type === 'intercept' ? 'tag-intercept' : 'tag-feature';
-      const valClass = parseFloat(val) >= 0 ? 'val-pos' : 'val-neg';
+      const valNum = typeof val === 'number' ? val : parseFloat(String(val));
+      const valClass = (isFinite(valNum) && valNum < 0) ? 'val-neg' : 'val-pos';
       return `<tr>
         <td>${name}</td>
         <td><span class="${tagClass}">${type}</span></td>
@@ -802,6 +936,33 @@
         <td style="font-size:0.7rem;color:var(--muted)">${interp}</td>
       </tr>`;
     }).join('');
+
+    const coefRows = [
+      ['β₀ (intercept)', 'intercept', MODEL.intercept.toFixed(6), 'Score de base (score_2017 = 0, Δ = 0)'],
+      ['β₁ (score_2017)', 'feature', MODEL.coef_2017.toFixed(6), 'Poids de la tendance 2017 → 2022'],
+      ['β₂ (delta)', 'feature', MODEL.coef_delta.toFixed(6), 'Ajustement Δ = (2017 − 2012)'],
+    ];
+
+    // Par défaut : KPIs uniquement (plus lisible en soutenance)
+    let kpiRowsResolved = null;
+    let activeMode = 'kpi';
+    tbody.innerHTML = `<tr><td colspan="4" style="color:var(--muted);font-size:0.75rem">Chargement KPIs modèle…</td></tr>`;
+
+    function setMode(mode) {
+      activeMode = mode;
+      if (mode === 'coeff') {
+        tbody.innerHTML = renderRows(coefRows);
+        return;
+      }
+      if (mode === 'kpi' && Array.isArray(kpiRowsResolved)) {
+        tbody.innerHTML = renderRows(kpiRowsResolved);
+      }
+    }
+
+    const btnKpi = document.getElementById('btnModelKpi');
+    const btnCoeff = document.getElementById('btnModelCoeff');
+    btnKpi?.addEventListener('click', () => setMode('kpi'));
+    btnCoeff?.addEventListener('click', () => setMode('coeff'));
 
     // Equation
     const sign = MODEL.coef_delta >= 0 ? '+' : '−';
@@ -817,6 +978,40 @@
       <span class="eq-var">× Δ</span>
     `;
     document.getElementById('dashEqNote').textContent = 'ŷ ∈ [0 ; 1] — proportion de votes prédite';
+
+    // ── KPI MODELE (issus de dataset_ml) ───────────────────────────────────
+    fetch('/api/model_metrics', { method: 'GET' })
+      .then(async res => {
+        const payload = await res.json();
+        if (!payload || payload.status !== 'ok' || !payload.metrics) return;
+        const m = payload.metrics;
+
+        const r2El = document.getElementById('kpi-r2');
+        const rmseEl = document.getElementById('kpi-rmse');
+        const maeEl = document.getElementById('kpi-mae');
+        const nEl = document.getElementById('kpi-n');
+
+        const rmsePp = (typeof m.rmse === 'number') ? (m.rmse * 100) : 0;
+        const maePp = (typeof m.mae === 'number') ? (m.mae * 100) : 0;
+
+        if (r2El && typeof m.r2 === 'number') r2El.textContent = m.r2.toFixed(4);
+        if (rmseEl && typeof rmsePp === 'number' && isFinite(rmsePp)) rmseEl.textContent = rmsePp.toFixed(2) + ' pts';
+        if (maeEl && typeof maePp === 'number' && isFinite(maePp)) maeEl.textContent = maePp.toFixed(2) + ' pts';
+        if (nEl && typeof m.n_samples === 'number') nEl.textContent = String(m.n_samples);
+
+        kpiRowsResolved = [
+          ['R² test (2022)', 'metric', m.r2.toFixed(4), `train_test_split 80/20 — X=[2017,δ], y=2022 (R² full=${(m.r2_full ?? m.r2).toFixed(4)})`],
+          ['RMSE (2022)', 'metric', m.rmse.toFixed(4), `≈ ${rmsePp.toFixed(2)} pts (score_rn)`],
+          ['MAE (2022)', 'metric', m.mae.toFixed(4), `≈ ${maePp.toFixed(2)} pts (score_rn)`],
+          ['N communes', 'metric', String(m.n_samples), 'dropna sur 2002/2007/2012/2017/2022 (cohérent Colab)'],
+        ];
+
+        if (activeMode === 'kpi') setMode('kpi');
+      })
+      .catch(() => {
+        // En cas d’erreur, on affiche au moins les coefficients.
+        setMode('coeff');
+      });
   }
 
   // ── GAUGES ────────────────────────────────────────────────────────────────
@@ -912,83 +1107,149 @@
 
   // ── CHART: Sensibilité ────────────────────────────────────────────────────
   function initSensitivity() {
-    const labels = MODEL.delta_labels.map(v => v.toFixed(2));
-    const colors = [P.blue, P.accent, P.ok];
-    const datasets = Object.entries(MODEL.sensitivity).map(([name, data], i) => ({
-      label: name,
-      data: data.map(v => parseFloat((v*100).toFixed(2))),
-      borderColor: colors[i],
-      backgroundColor: 'transparent',
-      borderWidth: 2, tension: 0.3, pointRadius: 0,
-    }));
-    new Chart(document.getElementById('chartSensitivity'), {
-      type: 'line',
-      data: { labels, datasets },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { display: true, position: 'top', labels: { boxWidth: 12, usePointStyle: true } },
-          tooltip: { mode: 'index', intersect: false, callbacks: { label: ctx => ` ${ctx.dataset.label} : ${ctx.raw.toFixed(1)}%` } }
-        },
-        scales: {
-          x: { grid: { color: P.grid }, title: { display: true, text: 'Valeur de Δ' } },
-          y: { grid: { color: P.grid }, ticks: { callback: v => v+'%' }, title: { display: true, text: 'Score prédit ŷ (%)' } }
-        }
-      }
-    });
+    const canvas = document.getElementById('chartSensitivity');
+    if (!canvas) return;
+    const existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
+
+    fetch('/api/kpi_score_mean', { method: 'GET' })
+      .then(async res => res.json())
+      .then(payload => {
+        if (!payload || payload.status !== 'ok') throw new Error('kpi_score_mean KO');
+        const years = payload.years || [];
+        const scores = (payload.scores || []).map(v => v * 100);
+        new Chart(canvas, {
+          type: 'line',
+          data: {
+            labels: years.map(y => String(y)),
+            datasets: [{
+              label: 'Score RN moyen (%)',
+              data: scores.map(v => parseFloat(v.toFixed(3))),
+              borderColor: P.accent,
+              backgroundColor: 'rgba(0,229,255,0.08)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.35,
+              pointRadius: 4,
+              pointBackgroundColor: P.accent,
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: ctx => `${ctx.raw.toFixed(2)}%` } }
+            },
+            scales: {
+              x: { grid: { color: P.grid }, title: { display: true, text: 'Année' } },
+              y: { grid: { color: P.grid }, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Score moyen (%)' } }
+            }
+          }
+        });
+      })
+      .catch(() => {
+        // fallback visuel minimal
+        new Chart(canvas, { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true } });
+      });
   }
 
   // ── CHART: Feature Importance ─────────────────────────────────────────────
   function initFeatureImportance() {
-    new Chart(document.getElementById('chartFeatureImportance'), {
-      type: 'bar',
-      data: {
-        labels: ['β₁ — Score 2017', 'β₂ — Delta Δ (|val|)'],
-        datasets: [{
-          label: 'Coefficient |β|',
-          data: [MODEL.coef_2017, Math.abs(MODEL.coef_delta)],
-          backgroundColor: [P.accent, P.warn],
-          borderRadius: 4, borderSkipped: false,
-        }]
-      },
-      options: {
-        indexAxis: 'y', responsive: true,
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: ctx => ` |β| = ${ctx.raw.toFixed(6)}` } }
-        },
-        scales: {
-          x: { grid: { color: P.grid }, title: { display: true, text: 'Valeur absolue du coefficient' } },
-          y: { grid: { display: false } }
-        }
-      }
-    });
+    const canvas = document.getElementById('chartFeatureImportance');
+    if (!canvas) return;
+    const existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
+
+    fetch('/api/kpi_correlations_2022', { method: 'GET' })
+      .then(async res => res.json())
+      .then(payload => {
+        if (!payload || payload.status !== 'ok' || !payload.corr) throw new Error('kpi_correlations KO');
+        const corr = payload.corr;
+        const keys = ['revenu_median', 'population', 'taux_chomage'];
+        const labels = ['Revenu médian', 'Population', 'Taux de chômage'];
+        const values = keys.map(k => corr[k]);
+        const colors = values.map(v => (v >= 0 ? 'rgba(105,240,174,0.65)' : 'rgba(255,171,64,0.65)'));
+        new Chart(canvas, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'corr(score_rn, variable)',
+              data: values.map(v => parseFloat(v.toFixed(4))),
+              backgroundColor: colors,
+              borderRadius: 4,
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: ctx => `corr = ${ctx.raw.toFixed(4)}` } }
+            },
+            scales: {
+              x: {
+                grid: { color: P.grid },
+                title: { display: true, text: 'Corrélation (−1 → +1)' },
+                min: -1,
+                max: 1,
+              },
+              y: { grid: { display: false } }
+            }
+          }
+        });
+      })
+      .catch(() => {
+        // fallback minimal
+        new Chart(canvas, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true } });
+      });
   }
 
   // ── CHART: Coef Share doughnut ────────────────────────────────────────────
   function initCoefShare() {
-    const total = MODEL.coef_2017 + Math.abs(MODEL.coef_delta);
-    new Chart(document.getElementById('chartCoefShare'), {
-      type: 'doughnut',
-      data: {
-        labels: ['β₁ — Score 2017', '|β₂| — Delta Δ'],
-        datasets: [{
-          data: [
-            parseFloat(((MODEL.coef_2017 / total) * 100).toFixed(1)),
-            parseFloat(((Math.abs(MODEL.coef_delta) / total) * 100).toFixed(1)),
-          ],
-          backgroundColor: [P.accent, P.warn],
-          borderWidth: 0, hoverOffset: 8,
-        }]
-      },
-      options: {
-        responsive: true, cutout: '60%',
-        plugins: {
-          legend: { display: true, position: 'bottom', labels: { boxWidth: 12, padding: 10 } },
-          tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${ctx.raw}%` } }
-        }
-      }
-    });
+    const canvas = document.getElementById('chartCoefShare');
+    if (!canvas) return;
+    const existing = Chart.getChart(canvas);
+    if (existing) existing.destroy();
+
+    fetch('/api/kpi_top_communes_2022', { method: 'GET' })
+      .then(async res => res.json())
+      .then(payload => {
+        if (!payload || payload.status !== 'ok' || !Array.isArray(payload.top)) throw new Error('kpi_top_communes KO');
+        const top = payload.top.slice(0, 10);
+        const labels = top.map(t => {
+          const s = t.nom_commune || '';
+          return s.length > 18 ? s.slice(0, 17) + '…' : s;
+        });
+        const values = top.map(t => t.score_rn * 100);
+        new Chart(canvas, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Score RN 2022 (%)',
+              data: values.map(v => parseFloat(v.toFixed(3))),
+              backgroundColor: 'rgba(0,229,255,0.55)',
+              borderRadius: 4,
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: ctx => `${ctx.raw.toFixed(2)}%` } }
+            },
+            scales: {
+              x: { grid: { color: P.grid }, title: { display: true, text: 'Score RN 2022 (%)' } },
+              y: { grid: { display: false } }
+            }
+          }
+        });
+      })
+      .catch(() => {
+        new Chart(canvas, { type: 'bar', data: { labels: [], datasets: [] }, options: { responsive: true } });
+      });
   }
 
   // ── PREDICTION GRID (heatmap table) ───────────────────────────────────────
@@ -1021,39 +1282,78 @@
 
   // ── DATA HEALTH RADAR ─────────────────────────────────────────────────────
   function initDataHealth() {
-    new Chart(document.getElementById('chartDataHealth'), {
-      type: 'radar',
-      data: {
-        labels: ['Complétude','Cohérence','Fraîcheur','Traçabilité','Exactitude','Accessibilité'],
-        datasets: [
-          {
-            label: 'Score actuel',
-            data: [94, 88, 95, 82, 90, 100],
-            backgroundColor: 'rgba(0,229,255,0.1)', borderColor: P.accent,
-            borderWidth: 2, pointBackgroundColor: P.accent, pointRadius: 4,
-          },
-          {
-            label: 'Seuil requis',
-            data: [70, 70, 70, 70, 70, 70],
-            backgroundColor: 'transparent', borderColor: 'rgba(255,171,64,0.35)',
-            borderWidth: 1.5, borderDash: [4,4], pointRadius: 0,
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12 } } },
-        scales: {
-          r: {
-            min: 0, max: 100,
-            grid: { color: 'rgba(255,255,255,0.07)' },
-            angleLines: { color: 'rgba(255,255,255,0.07)' },
-            ticks: { backdropColor: 'transparent', stepSize: 25 },
-            pointLabels: { font: { family: "'IBM Plex Mono'", size: 10 } }
+    const labels = ['Complétude','Cohérence','Fraîcheur','Traçabilité','Exactitude','Accessibilité'];
+    const fallback = [94, 88, 95, 82, 90, 100];
+    const threshold = [70, 70, 70, 70, 70, 70];
+    const ctx = document.getElementById('chartDataHealth');
+    if (!ctx) return;
+
+    async function render(values) {
+      new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Score actuel',
+              data: values,
+              backgroundColor: 'rgba(0,229,255,0.1)', borderColor: P.accent,
+              borderWidth: 2, pointBackgroundColor: P.accent, pointRadius: 4,
+            },
+            {
+              label: 'Seuil requis',
+              data: threshold,
+              backgroundColor: 'transparent', borderColor: 'rgba(255,171,64,0.35)',
+              borderWidth: 1.5, borderDash: [4,4], pointRadius: 0,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 12 } } },
+          scales: {
+            r: {
+              min: 0, max: 100,
+              grid: { color: 'rgba(255,255,255,0.07)' },
+              angleLines: { color: 'rgba(255,255,255,0.07)' },
+              ticks: { backdropColor: 'transparent', stepSize: 25 },
+              pointLabels: { font: { family: "'IBM Plex Mono'", size: 10 } }
+            }
           }
         }
-      }
-    });
+      });
+    }
+
+    // On récupère les scores depuis la BDD pour afficher des informations "réelles"
+    fetch('/api/data_health', { method: 'GET' })
+      .then(async res => {
+        const payload = await res.json();
+        if (payload && payload.status === 'ok' && Array.isArray(payload.values) && payload.values.length === 6) {
+          render(payload.values);
+        } else {
+          render(fallback);
+        }
+
+        // Met à jour aussi les cartes "Qualité & Gouvernance"
+        if (payload && payload.cards) {
+          const c = payload.cards;
+          const setPct = (idBar, idPct, pctVal) => {
+            const bar = document.getElementById(idBar);
+            const pct = document.getElementById(idPct);
+            if (!bar || !pct) return;
+            const v = (typeof pctVal === 'number') ? pctVal : parseFloat(pctVal);
+            if (!isFinite(v)) return;
+            bar.style.setProperty('--pct', `${v}%`);
+            pct.textContent = `${v.toFixed(0)}%`;
+          };
+          setPct('healthBarDataCleaned', 'healthPctDataCleaned', c.data_cleaned_pct);
+          setPct('healthBarMissingHandled', 'healthPctMissingHandled', c.missing_handled_pct);
+          setPct('healthBarTemporalCoverage', 'healthPctTemporalCoverage', c.temporal_coverage_pct);
+          const sourcesValidatedPct = document.getElementById('healthPctSourcesValidated');
+          if (sourcesValidatedPct && c.sources_validated_text) sourcesValidatedPct.textContent = c.sources_validated_text;
+        }
+      })
+      .catch(() => render(fallback));
   }
 
   // ── PREDICT FORM ──────────────────────────────────────────────────────────
@@ -1131,7 +1431,8 @@
   initCoefShare();
   initPredGrid();
   initDataHealth();
-  makeModelCurvesChart('chartPredictionDetail');
+  initCitiesPredictions();
+  initKpiTopEvolutionBars();
 
   </script>
 </body>
