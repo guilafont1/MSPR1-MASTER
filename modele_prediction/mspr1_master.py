@@ -665,53 +665,82 @@ import pandas as pd
 from sklearn.model_selection import train_test_split, KFold, GridSearchCV, cross_val_score
 from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 required_years = [2002, 2007, 2012, 2017, 2022]
-
-# Base "stricte" (ancienne version) pour comparaison
-strict_n_samples = int(df_wide.copy().dropna(subset=required_years).shape[0])
-
-# Version élargie: on garde les communes avec cible 2022 disponible
-# et au moins 2 observations historiques (2002..2017), puis imputation temporelle.
 pre_cols = [2002, 2007, 2012, 2017]
 years_only = df_wide[required_years].apply(pd.to_numeric, errors="coerce")
-mask_target_ok = years_only[2022].notna()
-mask_min_history = years_only[pre_cols].notna().sum(axis=1) >= 2
 
-df_ml = years_only.loc[mask_target_ok & mask_min_history].copy()
-df_ml = df_ml.interpolate(axis=1, method="linear", limit_direction="both")
+# Référence stricte (baseline)
+df_strict = years_only.dropna(subset=required_years).copy()
+strict_n_samples = int(len(df_strict))
+
+# Dataset total: cible 2022 obligatoire (on garde toutes les communes éligibles)
+mask_target_ok = years_only[2022].notna()
+history_count_raw = years_only[pre_cols].notna().sum(axis=1)
+df_ml = years_only.loc[mask_target_ok].copy()
+
+# Score de qualité historique (utilisé en poids d'entraînement)
+history_quality = (history_count_raw.loc[df_ml.index] / 4.0).clip(0.0, 1.0)
+
+# Imputation conservatrice:
+# 1) interpolation interne limitée à 1 trou
+df_ml[pre_cols] = df_ml[pre_cols].interpolate(
+    axis=1, method="linear", limit=1, limit_area="inside"
+)
+# 2) fallback sur médiane annuelle de la base stricte
+year_medians = df_strict[pre_cols].median() if strict_n_samples > 0 else df_ml[pre_cols].median()
+df_ml[pre_cols] = df_ml[pre_cols].fillna(year_medians)
+
+# Bornes de sécurité sur le score RN
+for col in required_years:
+    df_ml[col] = df_ml[col].clip(0.0, 1.0)
+
 df_ml = df_ml.dropna(subset=required_years).copy()
+history_quality = history_quality.loc[df_ml.index].astype(float)
 
 print("n_samples strict (dropna 2002..2022):", strict_n_samples)
-print("n_samples élargi (imputation temporelle):", len(df_ml))
+print("n_samples total (cible 2022 dispo):", len(df_ml))
+print("diagnostic rows with 2022 available:", int(mask_target_ok.sum()))
+print("diagnostic distribution history_count (0..4):")
+for k in range(5):
+    print(f"  - {k} année(s):", int((history_count_raw == k).sum()))
 
 # ===== Features AUTORISÉES pour prédire 2022 (pas d'info directe de 2022 dans X) =====
 df_ml["delta_recent"] = df_ml[2017] - df_ml[2012]
 df_ml["delta_long"]   = df_ml[2017] - df_ml[2002]
 df_ml["trend_pre2022"] = (df_ml[2017] - df_ml[2002]) / (2017 - 2002)
 df_ml["volatility_pre2022"] = df_ml[[2002, 2007, 2012, 2017]].std(axis=1)
+df_ml["history_quality"] = history_quality.values
 
-feature_cols = [2002, 2007, 2012, 2017, "delta_recent", "delta_long", "trend_pre2022", "volatility_pre2022"]
+feature_cols = [2002, 2007, 2012, 2017, "delta_recent", "delta_long", "trend_pre2022", "volatility_pre2022", "history_quality"]
 
 X = df_ml[feature_cols].copy()
 X.columns = X.columns.astype(str)
 y = df_ml[2022].astype(float)
+sample_weight = (0.75 + 0.25 * df_ml["history_quality"]).astype(float)
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
+X_train, X_test, y_train, y_test, w_train, w_test = train_test_split(
+    X, y, sample_weight, test_size=0.2, random_state=42
 )
 
-param_grid = {"alpha": [0.001, 0.01, 0.1, 1, 10, 100]}
+param_grid = {"model__alpha": [0.001, 0.01, 0.1, 1, 10, 100, 300]}
 cv = KFold(n_splits=5, shuffle=True, random_state=42)
 
+pipeline = Pipeline([
+    ("scaler", StandardScaler()),
+    ("model", Ridge(random_state=42)),
+])
+
 grid = GridSearchCV(
-    Ridge(random_state=42),
+    pipeline,
     param_grid=param_grid,
     scoring="r2",
     cv=cv,
     n_jobs=-1
 )
-grid.fit(X_train, y_train)
+grid.fit(X_train, y_train, model__sample_weight=w_train)
 
 model = grid.best_estimator_
 y_pred = model.predict(X_test)
@@ -722,7 +751,8 @@ mae = mean_absolute_error(y_test, y_pred)
 
 cv_scores = cross_val_score(model, X, y, cv=cv, scoring="r2", n_jobs=-1)
 
-print("Best alpha:", grid.best_params_)
+best_alpha = float(grid.best_params_["model__alpha"])
+print("Best alpha:", {"alpha": best_alpha})
 print("R2 test:", round(r2, 6))
 print("RMSE test:", round(rmse, 6))
 print("MAE test:", round(mae, 6))
@@ -740,6 +770,7 @@ X_2027 = pd.DataFrame({
     "delta_long": df_ml[2022] - df_ml[2007],
     "trend_pre2022": (df_ml[2022] - df_ml[2007]) / (2022 - 2007),      # proxy tendance pré-2027
     "volatility_pre2022": df_ml[[2007, 2012, 2017, 2022]].std(axis=1), # proxy volatilité pré-2027
+    "history_quality": 1.0,
 })
 X_2027.columns = X_2027.columns.astype(str)
 
@@ -754,7 +785,7 @@ model_export_path = os.path.join(os.path.dirname(__file__), "ridge_multiyear_202
 metadata_export_path = os.path.join(os.path.dirname(__file__), "ridge_multiyear_2027_metadata.joblib")
 
 metadata = {
-    "alpha": float(grid.best_params_["alpha"]),
+    "alpha": best_alpha,
     "r2_test": float(r2),
     "rmse_test": float(rmse),
     "mae_test": float(mae),
