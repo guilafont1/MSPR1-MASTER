@@ -456,60 +456,36 @@
       <header class="view-header">
         <div class="view-tag mono">VUE 02 / 04</div>
         <h1 class="view-title">Moteur Prédictif</h1>
-        <p class="view-subtitle">Simulation interactive — inférence en temps réel via l'équation du modèle</p>
+        <p class="view-subtitle">Projection 2027 automatique (logique Colab)</p>
       </header>
-
-      <!-- GAUGES -->
-      <div class="gauge-strip">
-        <div class="gauge-card">
-          <div class="gauge-wrap">
-            <canvas id="gaugeAccuracy" width="160" height="100"></canvas>
-            <div class="gauge-value" id="gaugeVal1">…</div>
-          </div>
-          <div class="gauge-label mono">β₁ — Score 2017</div>
-          <div class="gauge-sub">Poids de l'inertie électorale</div>
-        </div>
-        <div class="gauge-card">
-          <div class="gauge-wrap">
-            <canvas id="gaugeF1" width="160" height="100"></canvas>
-            <div class="gauge-value" id="gaugeVal2">…</div>
-          </div>
-          <div class="gauge-label mono">|β₂| — Delta Δ</div>
-          <div class="gauge-sub">Impact variation socio-éco (abs.)</div>
-        </div>
-        <div class="gauge-card">
-          <div class="gauge-wrap">
-            <canvas id="gaugeAuc" width="160" height="100"></canvas>
-            <div class="gauge-value" id="gaugeVal3">…</div>
-          </div>
-          <div class="gauge-label mono">β₀ — Intercept</div>
-          <div class="gauge-sub">Constante du modèle</div>
-        </div>
-      </div>
 
       <!-- SIMULATEUR -->
       <div class="card card-full">
         <div class="card-header">
           <span class="mono card-tag">SIMULATEUR</span>
-          <span class="card-title">Prédiction interactive — calculée localement via l'équation exacte du modèle</span>
+          <span class="card-title">Projection 2027 — logique Colab (même modèle simplifié)</span>
         </div>
         <div class="predict-form-row">
           <div class="predict-input-group">
-            <label class="mono predict-label" for="input2017">Score 2017 (0.0 – 1.0)</label>
-            <input class="predict-input" id="input2017" type="number" min="0" max="1" step="0.001" value="0.241"/>
-            <span class="predict-hint mono">part des votes au 1er tour 2017</span>
+            <label class="mono predict-label" for="input2017">Score 2022 (0.0 – 1.0)</label>
+            <input class="predict-input" id="input2017" type="number" min="0" max="1" step="0.001" value="0.287"/>
+            <span class="predict-hint mono">part des votes au 1er tour 2022</span>
           </div>
           <div class="predict-input-group">
-            <label class="mono predict-label" for="inputDelta">Delta Δ (variation socio-éco)</label>
-            <input class="predict-input" id="inputDelta" type="number" step="0.001" value="0.050"/>
-            <span class="predict-hint mono">variation positive = contexte défavorable</span>
+            <label class="mono predict-label" for="inputDelta">Delta projection (2022 − 2017)</label>
+            <input class="predict-input" id="inputDelta" type="number" step="0.001" value="0.031"/>
+            <span class="predict-hint mono">variation du score entre 2017 et 2022</span>
           </div>
-          <button class="predict-btn" id="predictBtn">Calculer</button>
         </div>
-        <div class="predict-result" id="predictResult" style="display:none">
-          <div class="predict-result-label mono">Score prédit :</div>
+        <div class="predict-result" id="predictResult">
+          <div class="predict-result-label mono">Taux prédit 2027 :</div>
           <div class="predict-result-value" id="predictValue">—</div>
           <div class="predict-formula mono" id="predictFormula">—</div>
+        </div>
+        <div class="predict-result" id="predictNationalResult">
+          <div class="predict-result-label mono">Moyenne nationale (comme Colab) :</div>
+          <div class="predict-result-value" id="predictNationalValue">…</div>
+          <div class="predict-formula mono" id="predictNationalFormula">Chargement de la projection nationale 2027…</div>
         </div>
       </div>
 
@@ -963,29 +939,6 @@
       });
   }
 
-  // ── GAUGES ────────────────────────────────────────────────────────────────
-  function drawGauge(canvasId, value, maxVal, color) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const cx = canvas.width / 2, cy = canvas.height - 10, r = 60;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, 0);
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.stroke();
-    const ratio = Math.min(Math.abs(value) / maxVal, 1);
-    ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI, Math.PI + ratio * Math.PI);
-    ctx.strokeStyle = color; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.stroke();
-  }
-
-  function initGauges() {
-    document.getElementById('gaugeVal1').textContent = MODEL.coef_2017.toFixed(4);
-    document.getElementById('gaugeVal2').textContent = Math.abs(MODEL.coef_delta).toFixed(4);
-    document.getElementById('gaugeVal3').textContent = MODEL.intercept.toFixed(4);
-    drawGauge('gaugeAccuracy', MODEL.coef_2017,              1.0,  P.ok);
-    drawGauge('gaugeF1',       Math.abs(MODEL.coef_delta),   1.0,  P.accent);
-    drawGauge('gaugeAuc',      Math.abs(MODEL.intercept),    1.0,  P.blue);
-  }
-
   // ── EQUATION BLOCK (vue 2) ────────────────────────────────────────────────
   function initEquationBlock() {
     const sign = MODEL.coef_delta >= 0 ? '+' : '−';
@@ -1266,18 +1219,43 @@
       .catch(() => render(fallback));
   }
 
-  // ── PREDICT FORM ──────────────────────────────────────────────────────────
-  document.getElementById('predictBtn').addEventListener('click', () => {
+  // ── PREDICTION NATIONALE (logique Colab) ─────────────────────────────────
+  function initPredictionNational() {
+    fetch('/api/prediction_2027_nationale', { method: 'GET' })
+      .then(async res => {
+        const payload = await res.json();
+        if (!payload || payload.status !== 'ok') throw new Error('prediction_2027_nationale KO');
+
+        const vEl = document.getElementById('predictNationalValue');
+        const fEl = document.getElementById('predictNationalFormula');
+        if (vEl && typeof payload.prediction_2027_nationale_pct === 'number') {
+          vEl.textContent = `${payload.prediction_2027_nationale_pct.toFixed(2)} %`;
+        }
+        if (fEl) {
+          const n = payload.n_communes ?? 'n/a';
+          fEl.textContent = `${payload.message} : ${payload.prediction_2027_nationale_pct.toFixed(2)} % (sur ${n} communes)`;
+        }
+      })
+      .catch(() => {
+        const fEl = document.getElementById('predictNationalFormula');
+        if (fEl) fEl.textContent = 'Projection nationale indisponible.';
+      });
+  }
+
+  // ── PREDICT FORM (calcul auto) ────────────────────────────────────────────
+  function updatePredictResult() {
     const s = parseFloat(document.getElementById('input2017').value);
     const d = parseFloat(document.getElementById('inputDelta').value);
-    if (isNaN(s) || isNaN(d)) { alert('Valeurs numériques requises.'); return; }
+    if (isNaN(s) || isNaN(d) || s < 0 || s > 1) return;
     const pred = predictLocal(s, d);
     const pct = (pred * 100).toFixed(2);
     document.getElementById('predictValue').textContent = `${pct} %`;
     document.getElementById('predictFormula').textContent =
-      `ŷ = ${MODEL.intercept.toFixed(5)} + ${MODEL.coef_2017.toFixed(5)} × ${s} + (${MODEL.coef_delta.toFixed(5)}) × ${d} = ${pred.toFixed(5)}`;
+      `Projection 2027 = ${MODEL.intercept.toFixed(5)} + ${MODEL.coef_2017.toFixed(5)} × score_2022 + (${MODEL.coef_delta.toFixed(5)}) × (score_2022 - score_2017) = ${pred.toFixed(5)}`;
     document.getElementById('predictResult').style.display = 'flex';
-  });
+  }
+  document.getElementById('input2017')?.addEventListener('input', updatePredictResult);
+  document.getElementById('inputDelta')?.addEventListener('input', updatePredictResult);
 
   // ── EXPAND BUTTONS ────────────────────────────────────────────────────────
   document.querySelectorAll('.card').forEach(card => {
@@ -1333,7 +1311,6 @@
 
   // ── BOOT ──────────────────────────────────────────────────────────────────
   initDashboard();
-  initGauges();
   initEquationBlock();
   initSensitivity();
   initFeatureImportance();
@@ -1342,6 +1319,8 @@
   initDataHealth();
   initCitiesPredictions();
   initKpiTopEvolutionBars();
+  initPredictionNational();
+  updatePredictResult();
 
   </script>
 </body>

@@ -512,6 +512,74 @@ def cities_predictions():
         return jsonify({"status": "error", "message": f"Erreur DB: {exc.msg}"}), 500
 
 
+@app.route("/api/prediction_2027_nationale", methods=["GET"])
+def prediction_2027_nationale():
+    """
+    Reproduit la logique Colab "Moyenne nationale":
+    - modèle simplifié entraîné sur X=[2017, delta(2017-2012)] -> y=2022
+    - projection 2027 avec:
+        feature '2017' = score_2022
+        feature 'delta' = score_2022 - score_2017
+    Retourne le taux national moyen prédit pour 2027.
+    """
+    db_config = get_db_config()
+    required_keys = {"host", "user", "password", "database"}
+    missing = [k for k, v in db_config.items() if k in required_keys and not v]
+    if missing:
+        return jsonify({"status": "error", "message": f"Variables manquantes: {', '.join(missing)}"}), 500
+
+    try:
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
+        cursor.execute(
+            """
+            SELECT codgeo, annee, score_rn
+            FROM dataset_ml
+            WHERE annee IN (2017, 2022)
+            """
+        )
+        rows = cursor.fetchall()
+        cursor.close()
+        connection.close()
+
+        if not rows:
+            return jsonify({"status": "error", "message": "dataset_ml vide pour 2017/2022"}), 500
+
+        df = pd.DataFrame(rows, columns=["codgeo", "annee", "score_rn"])
+        wide = df.pivot_table(index="codgeo", columns="annee", values="score_rn", aggfunc="first")
+        if 2017 not in wide.columns or 2022 not in wide.columns:
+            return jsonify({"status": "error", "message": "Années 2017/2022 manquantes"}), 500
+
+        wide = wide.dropna(subset=[2017, 2022]).copy()
+        if wide.empty:
+            return jsonify({"status": "error", "message": "Aucune commune valide pour projection 2027"}), 500
+
+        # Logique Colab: X_2027_features = {'2017': score_2022, 'delta': score_2022 - score_2017}
+        X_2027 = pd.DataFrame(
+            {
+                "2017": wide[2022].astype(float),
+                "delta": (wide[2022] - wide[2017]).astype(float),
+            }
+        )
+        X_2027.columns = X_2027.columns.astype(str)
+
+        pred_2027 = model.predict(X_2027)
+        national_mean = float(np.mean(pred_2027))
+        n_communes = int(len(X_2027))
+
+        return jsonify(
+            {
+                "status": "ok",
+                "prediction_2027_nationale": round(national_mean, 6),
+                "prediction_2027_nationale_pct": round(national_mean * 100.0, 2),
+                "n_communes": n_communes,
+                "message": "La prédiction concerne le score du RN au premier tour de l'élection présidentielle 2027",
+            }
+        ), 200
+    except mysql.connector.Error as exc:
+        return jsonify({"status": "error", "message": f"Erreur DB: {exc.msg}"}), 500
+
+
 @app.route("/api/kpi_score_mean", methods=["GET"])
 def kpi_score_mean():
     """
