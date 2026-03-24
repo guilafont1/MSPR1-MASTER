@@ -10,8 +10,98 @@ Original file is located at
 """
 
 import pandas as pd
+import os
+import sys
+import joblib
+from dotenv import load_dotenv
+import mysql.connector
 
-df = pd.read_excel("resultats-presidentielle-2022.xlsx")
+load_dotenv()
+
+DATA_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "data_initial"))
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "outputs")
+
+
+def output_path(filename: str) -> str:
+    """
+    Construit un chemin absolu dans modele_prediction/outputs
+    et crée le dossier si nécessaire.
+    """
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    return os.path.join(OUTPUT_DIR, filename)
+
+
+def data_path(filename: str) -> str:
+    """
+    Construit un chemin absolu vers un fichier source dans data_initial/.
+    Compatible avec l'arborescence actuelle (fichiers répartis en sous-dossiers).
+    """
+    candidates = [
+        os.path.join(DATA_DIR, filename),
+        os.path.join(DATA_DIR, "data-presidentielle", filename),
+        os.path.join(DATA_DIR, "population-par-commune-INSEE", filename),
+        os.path.join(DATA_DIR, "revenu-des-francais-a-la-commune-2021", filename),
+        os.path.join(DATA_DIR, "Taux-de-chomage", filename),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    # Message explicite pour debug
+    raise FileNotFoundError(
+        f"Fichier introuvable dans data_initial (et sous-dossiers connus): {filename}"
+    )
+
+
+def check_bdd_dataset_ml():
+    """
+    Vérifie rapidement la BDD MySQL et le contenu de dataset_ml.
+    Usage:
+      python modele_prediction/mspr1_master.py --check-db
+    """
+    cfg = {
+        "host": os.environ.get("DB_HOST"),
+        "port": int(os.environ.get("DB_PORT", "3306")),
+        "user": os.environ.get("DB_USER"),
+        "password": os.environ.get("DB_PASSWORD"),
+        "database": os.environ.get("DB_NAME"),
+        "ssl_disabled": os.environ.get("DB_SSL_REQUIRED", "true").lower() != "true",
+        "ssl_ca": os.environ.get("DB_SSL_CA_PATH"),
+        "connection_timeout": int(os.environ.get("DB_CONNECT_TIMEOUT", "5")),
+    }
+    required = ["host", "user", "password", "database"]
+    missing = [k for k in required if not cfg.get(k)]
+    if missing:
+        print(f"[CHECK-DB] Variables .env manquantes: {', '.join(missing)}")
+        return 1
+
+    try:
+        conn = mysql.connector.connect(**cfg)
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM dataset_ml")
+        total = int(cur.fetchone()[0])
+        cur.execute("SELECT annee, COUNT(*) FROM dataset_ml GROUP BY annee ORDER BY annee")
+        by_year = cur.fetchall()
+        cur.execute("SELECT COUNT(DISTINCT codgeo) FROM dataset_ml")
+        n_communes = int(cur.fetchone()[0])
+        cur.close()
+        conn.close()
+
+        print("[CHECK-DB] Connexion MySQL: OK")
+        print(f"[CHECK-DB] dataset_ml total lignes: {total}")
+        print(f"[CHECK-DB] dataset_ml communes distinctes: {n_communes}")
+        print("[CHECK-DB] dataset_ml lignes par année:")
+        for year, cnt in by_year:
+            print(f"  - {int(year)}: {int(cnt)}")
+        return 0
+    except mysql.connector.Error as exc:
+        print(f"[CHECK-DB] Erreur MySQL: {exc.msg}")
+        return 1
+
+
+if "--check-db" in sys.argv:
+    raise SystemExit(check_bdd_dataset_ml())
+
+df = pd.read_excel(data_path("resultats-presidentielle-2022.xlsx"))
 
 # colonnes info bureau
 df_long = []
@@ -67,12 +157,12 @@ rn_communes_2022["annee"] = 2022
 print("Total voix RN :", rn_communes_2022["Voix"].sum())
 print("Communes :", len(rn_communes_2022))
 
-rn_communes_2022.to_csv("dataset_rn_communes_2022.csv", index=False)
+rn_communes_2022.to_csv(output_path("dataset_rn_communes_2022.csv"), index=False)
 
 """2017"""
 
 df = pd.read_csv(
-    "resultats-presidentielle-2017.csv",
+    data_path("resultats-presidentielle-2017.csv"),
     sep=",",
     low_memory=False
 )
@@ -127,7 +217,7 @@ print("Communes :", len(rn_communes_2017))
 
 """2012"""
 
-df = pd.read_excel("resultats-presidentielle-2012.xls", engine="xlrd")
+df = pd.read_excel(data_path("resultats-presidentielle-2012.xls"), engine="xlrd")
 
 # colonnes fixes
 base_cols = [
@@ -191,7 +281,7 @@ print(rn_communes_2012.isna().sum())
 
 rn_communes_2012 = rn_communes_2012.dropna(subset=["score_rn"])
 
-df = pd.read_excel("resultats-presidentielle-2007.xls")
+df = pd.read_excel(data_path("resultats-presidentielle-2007.xls"))
 
 base_cols = [
     "Code du département",
@@ -248,7 +338,7 @@ rn_communes_2007 = rn_communes_2007.dropna(subset=["score_rn"])
 
 """2002"""
 
-df = pd.read_excel("resultats-presidentielle-2002.xls")
+df = pd.read_excel(data_path("resultats-presidentielle-2002.xls"))
 
 base_cols = [
     "Code du département",
@@ -308,7 +398,7 @@ df_global["Voix"] = pd.to_numeric(df_global["Voix"], errors="coerce")
 df_global["Exprimés"] = pd.to_numeric(df_global["Exprimés"], errors="coerce")
 df_global["score_rn"] = pd.to_numeric(df_global["score_rn"], errors="coerce")
 
-df_global.to_csv("dataset_rn_2002_2022.csv", index=False)
+df_global.to_csv(output_path("dataset_rn_2002_2022.csv"), index=False)
 
 df_wide = df_global.pivot_table(
     index=["Code du département","Code de la commune","Libellé de la commune"],
@@ -321,7 +411,7 @@ df_wide["evolution_2017_2022"] = df_wide[2022] - df_wide[2017]
 
 """INSEE"""
 
-df_pop = pd.read_csv("donnees_communes.csv", sep=";")
+df_pop = pd.read_csv(data_path("donnees_communes.csv"), sep=";")
 
 print(df_pop.columns)
 print(df_pop.head())
@@ -354,7 +444,7 @@ df.rename(columns={"PTOT": "population"}, inplace=True)
 print(df[["population"]].isna().sum())
 print(df.head())
 
-df_rev = pd.read_csv("revenu_des_francais_a_la_commune_2021.csv", sep=";")
+df_rev = pd.read_csv(data_path("revenu_des_francais_a_la_commune_2021.csv"), sep=";")
 
 print(df_rev.columns)
 print(df_rev.head())
@@ -396,7 +486,7 @@ print(df_merged.describe())
 
 """Chomage"""
 
-df_chomage = pd.read_excel("taux-de-chomage.xlsx", skiprows=4, header=None)
+df_chomage = pd.read_excel(data_path("taux-de-chomage.xlsx"), skiprows=4, header=None)
 
 print(df_chomage.head())
 
@@ -570,266 +660,95 @@ print("vs")
 print("MSE XGB :", mse_xgb)
 print("R2 XGB :", r2_xgb)
 
-df_ml = df_wide.copy()
-
-# suppression des lignes incomplètes
-df_ml = df_ml.dropna(subset=[2002, 2007, 2012, 2017, 2022])
-
-X = df_ml[[2002, 2007, 2012, 2017]]
-
-y = df_ml[2022]
-
-if "CODGEO" not in df_ml.columns:
-    # Recreate CODGEO as it was lost in the pivot_table operation for df_wide
-    df_ml["Code du département"] = df_ml["Code du département"].astype(str).str.zfill(2)
-    df_ml["Code de la commune"] = (
-        df_ml["Code de la commune"]
-        .astype(str)
-        .str.extract(r"(\d+)")[0]
-        .str.zfill(3)
-    )
-    df_ml["CODGEO"] = df_ml["Code du département"] + df_ml["Code de la commune"]
-
-if "PTOT" not in df_ml.columns:
-    df_ml = df_ml.merge(
-        df_pop[["CODGEO", "PTOT"]],
-        on="CODGEO",
-        how="left"
-    )
-
-df_ml = df_ml.dropna(subset=["PTOT"])
-
-# S'assurer que les noms de colonnes sont des chaînes pour éviter l'erreur TypeError rencontrée plus tard
-X = df_ml[[2002, 2007, 2012, 2017, "PTOT"]]
-X.columns = X.columns.astype(str)
-y = df_ml[2022] # Redefine y to match the updated df_ml
-
-from xgboost import XGBRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
-
-model = XGBRegressor(
-    n_estimators=300,
-    max_depth=6,
-    learning_rate=0.05,
-    random_state=42
-)
-
-model.fit(X_train, y_train)
-
-y_pred = model.predict(X_test)
-
-mse = mean_squared_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
-
-print("MSE :", mse)
-print("R2 :", r2)
-
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
-
-# Initialisation et entraînement
-model_lr = LinearRegression()
-model_lr.fit(X_train, y_train)
-
-# Prédiction
-y_pred_lr = model_lr.predict(X_test)
-
-print("R2 Linear Regression :", r2_score(y_test, y_pred_lr))
-
-coefficients = pd.Series(model_lr.coef_, index=X.columns)
-print(coefficients)
-
-"""Le score de 2017 est de loin la variable la plus influente.
-
-Les autres années ont un impact beaucoup plus faible, voire négligeable.
-La population n’a quasiment aucun effet.
-
-Cela confirme que le vote dépend principalement du résultat le plus récent.
-"""
-
-from sklearn.model_selection import train_test_split
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
-
-from xgboost import XGBRegressor
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error, r2_score
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
-
-model = XGBRegressor(
-    n_estimators=300,
-    max_depth=6,
-    learning_rate=0.05,
-    random_state=42
-)
-
-model.fit(X_train, y_train)
-
-y_pred = model.predict(X_test)
-
-mse = mean_squared_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
-
-print("MSE :", mse)
-print("R2 :", r2)
-
-df_ml["delta"] = df_ml[2017] - df_ml[2012]
-
-# Correction : Conversion de tous les noms de colonnes en chaînes de caractères
-X = df_ml[[2017, "delta"]]
-X.columns = X.columns.astype(str)
-y = df_ml[2022]
-
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
-
-model = LinearRegression()
-model.fit(X_train, y_train)
-
-y_pred = model.predict(X_test)
-
-print("R2 amélioré :", r2_score(y_test, y_pred))
-
-from sklearn.model_selection import cross_val_score
-
-model = LinearRegression()
-
-scores = cross_val_score(model, X, y, cv=5, scoring="r2")
-
-print("Scores CV :", scores)
-print("R2 moyen :", scores.mean())
-
-"""La validation croisée montre une variabilité importante des performances selon les échantillons, ce qui indique que le modèle reste sensible aux données utilisées.
-
-Le modèle est performant mais présente une certaine variabilité, ce qui souligne les limites des données disponibles.
-"""
-
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split, KFold, GridSearchCV, cross_val_score
 from sklearn.linear_model import Ridge
-from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 
-# modèle
-model = Ridge()
+required_years = [2002, 2007, 2012, 2017, 2022]
+df_ml = df_wide.copy().dropna(subset=required_years).copy()
 
-# hyperparamètres à tester
-params = {
-    "alpha": [0.01, 0.1, 1, 10, 100]
-}
+# ===== Features AUTORISÉES pour prédire 2022 (pas d'info directe de 2022 dans X) =====
+df_ml["delta_recent"] = df_ml[2017] - df_ml[2012]
+df_ml["delta_long"]   = df_ml[2017] - df_ml[2002]
+df_ml["trend_pre2022"] = (df_ml[2017] - df_ml[2002]) / (2017 - 2002)
+df_ml["volatility_pre2022"] = df_ml[[2002, 2007, 2012, 2017]].std(axis=1)
 
-# grid search
-grid = GridSearchCV(model, params, cv=5, scoring="r2")
+feature_cols = [2002, 2007, 2012, 2017, "delta_recent", "delta_long", "trend_pre2022", "volatility_pre2022"]
 
-grid.fit(X, y)
-
-print("Meilleur alpha :", grid.best_params_)
-print("Meilleur R2 :", grid.best_score_)
-
-from sklearn.linear_model import Lasso
-
-model = Lasso()
-
-params = {
-    "alpha": [0.001, 0.01, 0.1, 1]
-}
-
-grid = GridSearchCV(model, params, cv=5, scoring="r2")
-grid.fit(X, y)
-
-print("Best alpha :", grid.best_params_)
-print("Best R2 :", grid.best_score_)
-
-"""L’introduction de modèles régularisés (Ridge, Lasso) n’améliore pas les performances, ce qui confirme l’absence de surapprentissage et la simplicité du phénomène étudié.
-
-Après plusieurs tests, le score de 2017 apparaît comme le meilleur prédicteur du score 2022. Les autres variables n’apportent pas d’amélioration significative.
-"""
-
-from sklearn.linear_model import Lasso
-
-# 1. Création des features d'entraînement
-X_train = pd.DataFrame({
-    '2017': df_ml[2017],
-    'delta': df_ml[2017] - df_ml[2012]
-})
-X_train.columns = X_train.columns.astype(str)
-
-y_train = df_ml[2022]
-
-# 2. Initialisation du modèle
-model = Lasso()
-
-# 3. Entraînement
-model.fit(X_train, y_train)
-
-# 4. Features pour 2027
-X_2027_features = pd.DataFrame({
-    '2017': df_ml[2022],
-    'delta': df_ml[2022] - df_ml[2017]
-})
-X_2027_features.columns = X_2027_features.columns.astype(str)
-
-# 5. Prédiction
-pred_2027 = model.predict(X_2027_features)
-
-df_ml["prediction_2027"] = pred_2027
-
-df_ml["delta"] = df_ml[2017] - df_ml[2012]
-
-# Correction : Conversion de tous les noms de colonnes en chaînes de caractères
-X = df_ml[[2017, "delta"]]
+X = df_ml[feature_cols].copy()
 X.columns = X.columns.astype(str)
-y = df_ml[2022]
+y = df_ml[2022].astype(float)
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
 
-model = LinearRegression()
-model.fit(X_train, y_train)
+param_grid = {"alpha": [0.001, 0.01, 0.1, 1, 10, 100]}
+cv = KFold(n_splits=5, shuffle=True, random_state=42)
 
+grid = GridSearchCV(
+    Ridge(random_state=42),
+    param_grid=param_grid,
+    scoring="r2",
+    cv=cv,
+    n_jobs=-1
+)
+grid.fit(X_train, y_train)
+
+model = grid.best_estimator_
 y_pred = model.predict(X_test)
 
-print("R2 amélioré :", r2_score(y_test, y_pred))
+r2 = r2_score(y_test, y_pred)
+rmse = mean_squared_error(y_test, y_pred) ** 0.5
+mae = mean_absolute_error(y_test, y_pred)
 
-"""Moyenne nationale"""
+cv_scores = cross_val_score(model, X, y, cv=cv, scoring="r2", n_jobs=-1)
 
-print("La prédiction concerne le score du RN au premier tour de l’élection présidentielle 2027 :",
-      round(df_ml["prediction_2027"].mean() * 100, 2), "%")
+print("Best alpha:", grid.best_params_)
+print("R2 test:", round(r2, 6))
+print("RMSE test:", round(rmse, 6))
+print("MAE test:", round(mae, 6))
+print("R2 CV mean:", round(cv_scores.mean(), 6))
+print("R2 CV std:", round(cv_scores.std(), 6))
+print("n_samples:", len(X))
 
-# Create features for 2027 prediction based on the simplified model (trained on '2017' and 'delta')
-# '2017' in the model context will be the 2022 score for predicting 2027
-# 'delta' in the model context (originally 2017 - 2012) will be (2022 score - 2017 score) for predicting 2027
-X_2027_features = pd.DataFrame({
-    '2017': df_ml[2022],
-    'delta': df_ml[2022] - df_ml[2017]
+# ===== Projection 2027 (décalage temporel cohérent) =====
+X_2027 = pd.DataFrame({
+    "2002": df_ml[2007],
+    "2007": df_ml[2012],
+    "2012": df_ml[2017],
+    "2017": df_ml[2022],
+    "delta_recent": df_ml[2022] - df_ml[2017],
+    "delta_long": df_ml[2022] - df_ml[2007],
+    "trend_pre2022": (df_ml[2022] - df_ml[2007]) / (2022 - 2007),      # proxy tendance pré-2027
+    "volatility_pre2022": df_ml[[2007, 2012, 2017, 2022]].std(axis=1), # proxy volatilité pré-2027
 })
-# Ensure column names are strings as the model expects
-X_2027_features.columns = X_2027_features.columns.astype(str)
+X_2027.columns = X_2027.columns.astype(str)
 
-# Use the latest simplified model named 'model' for prediction
-pred_2027 = model.predict(X_2027_features)
+pred_2027 = model.predict(X_2027)
+pred_2027 = np.clip(pred_2027, 0, 1)
 
-df_ml["prediction_2027"] = pred_2027
+taux_national_2027 = float(np.mean(pred_2027) * 100)
+print("La prédiction concerne le score du RN au 1er tour 2027 :", round(taux_national_2027, 2), "%")
 
-print(df_ml[["Libellé de la commune", 2022, "prediction_2027"]].head())
+# ===== Export artefacts pour l'API Flask =====
+model_export_path = os.path.join(os.path.dirname(__file__), "ridge_multiyear_2027.joblib")
+metadata_export_path = os.path.join(os.path.dirname(__file__), "ridge_multiyear_2027_metadata.joblib")
 
-import joblib
+metadata = {
+    "alpha": float(grid.best_params_["alpha"]),
+    "r2_test": float(r2),
+    "rmse_test": float(rmse),
+    "mae_test": float(mae),
+    "r2_cv_mean": float(cv_scores.mean()),
+    "r2_cv_std": float(cv_scores.std()),
+    "n_samples": int(len(X)),
+    "pred_2027_national_pct": float(taux_national_2027),
+}
 
-# Sauvegarde le modèle entraîné
-joblib.dump(model, 'linear_regression_model.joblib')
-
-print("Modèle exporté sous 'linear_regression_model.joblib'")
-
-"""Le modèle tend à lisser les prédictions, ce qui peut sous-estimer les résultats extrêmes.
-
-Les modèles complexes n’améliorent pas les performances, ce qui montre que le signal est déjà contenu dans une variable simple. Le modèle a donc été volontairement simplifié pour maximiser l’interprétabilité
-"""
+joblib.dump(model, model_export_path)
+joblib.dump(metadata, metadata_export_path)
+print(f"[EXPORT] Modèle sauvegardé: {model_export_path}")
+print(f"[EXPORT] Metadata sauvegardées: {metadata_export_path}")

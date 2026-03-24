@@ -18,9 +18,31 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-in-pr
 
 # Chargement du modèle au démarrage
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "modele_prediction", "linear_regression_model.joblib")
+RIDGE_EXPORT_CANDIDATES = [
+    (
+        os.path.join(os.path.dirname(__file__), "ridge_multiyear_2027.joblib"),
+        os.path.join(os.path.dirname(__file__), "ridge_multiyear_2027_metadata.joblib"),
+    ),
+    (
+        os.path.join(os.path.dirname(__file__), "modele_prediction", "ridge_multiyear_2027.joblib"),
+        os.path.join(os.path.dirname(__file__), "modele_prediction", "ridge_multiyear_2027_metadata.joblib"),
+    ),
+]
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     model = joblib.load(MODEL_PATH)
+
+
+def load_ridge_export_metadata():
+    """Charge les métadonnées exportées depuis Colab si disponibles."""
+    for model_path, metadata_path in RIDGE_EXPORT_CANDIDATES:
+        if os.path.exists(model_path) and os.path.exists(metadata_path):
+            try:
+                metadata = joblib.load(metadata_path)
+                return metadata
+            except Exception:
+                continue
+    return None
 
 
 @app.route("/")
@@ -515,69 +537,71 @@ def cities_predictions():
 @app.route("/api/prediction_2027_nationale", methods=["GET"])
 def prediction_2027_nationale():
     """
-    Reproduit la logique Colab "Moyenne nationale":
-    - modèle simplifié entraîné sur X=[2017, delta(2017-2012)] -> y=2022
-    - projection 2027 avec:
-        feature '2017' = score_2022
-        feature 'delta' = score_2022 - score_2017
-    Retourne le taux national moyen prédit pour 2027.
+    Retourne la projection nationale 2027 UNIQUEMENT depuis l'export Colab.
+    Aucun fallback BDD n'est autorisé pour éviter tout écart de métriques.
     """
-    db_config = get_db_config()
-    required_keys = {"host", "user", "password", "database"}
-    missing = [k for k, v in db_config.items() if k in required_keys and not v]
-    if missing:
-        return jsonify({"status": "error", "message": f"Variables manquantes: {', '.join(missing)}"}), 500
-
-    try:
-        connection = mysql.connector.connect(**db_config)
-        cursor = connection.cursor()
-        cursor.execute(
-            """
-            SELECT codgeo, annee, score_rn
-            FROM dataset_ml
-            WHERE annee IN (2017, 2022)
-            """
-        )
-        rows = cursor.fetchall()
-        cursor.close()
-        connection.close()
-
-        if not rows:
-            return jsonify({"status": "error", "message": "dataset_ml vide pour 2017/2022"}), 500
-
-        df = pd.DataFrame(rows, columns=["codgeo", "annee", "score_rn"])
-        wide = df.pivot_table(index="codgeo", columns="annee", values="score_rn", aggfunc="first")
-        if 2017 not in wide.columns or 2022 not in wide.columns:
-            return jsonify({"status": "error", "message": "Années 2017/2022 manquantes"}), 500
-
-        wide = wide.dropna(subset=[2017, 2022]).copy()
-        if wide.empty:
-            return jsonify({"status": "error", "message": "Aucune commune valide pour projection 2027"}), 500
-
-        # Logique Colab: X_2027_features = {'2017': score_2022, 'delta': score_2022 - score_2017}
-        X_2027 = pd.DataFrame(
-            {
-                "2017": wide[2022].astype(float),
-                "delta": (wide[2022] - wide[2017]).astype(float),
-            }
-        )
-        X_2027.columns = X_2027.columns.astype(str)
-
-        pred_2027 = model.predict(X_2027)
-        national_mean = float(np.mean(pred_2027))
-        n_communes = int(len(X_2027))
-
+    ridge_meta = load_ridge_export_metadata()
+    if not ridge_meta:
         return jsonify(
             {
-                "status": "ok",
-                "prediction_2027_nationale": round(national_mean, 6),
-                "prediction_2027_nationale_pct": round(national_mean * 100.0, 2),
-                "n_communes": n_communes,
-                "message": "La prédiction concerne le score du RN au premier tour de l'élection présidentielle 2027",
+                "status": "error",
+                "message": (
+                    "Artefacts Colab introuvables. Exécute `mspr1_master.py` "
+                    "avec export `ridge_multiyear_2027.joblib` et "
+                    "`ridge_multiyear_2027_metadata.joblib`."
+                ),
             }
-        ), 200
-    except mysql.connector.Error as exc:
-        return jsonify({"status": "error", "message": f"Erreur DB: {exc.msg}"}), 500
+        ), 500
+
+    pred_pct = float(ridge_meta.get("pred_2027_national_pct", np.nan))
+    if not np.isfinite(pred_pct):
+        return jsonify(
+            {
+                "status": "error",
+                "message": "Metadata Colab invalide: `pred_2027_national_pct` manquant ou non numérique.",
+            }
+        ), 500
+
+    return jsonify(
+        {
+            "status": "ok",
+            "prediction_2027_nationale": round(pred_pct / 100.0, 6),
+            "prediction_2027_nationale_pct": round(pred_pct, 2),
+            "n_communes": int(ridge_meta.get("n_samples", 0)),
+            "best_alpha": (
+                float(ridge_meta.get("alpha", np.nan))
+                if np.isfinite(ridge_meta.get("alpha", np.nan))
+                else None
+            ),
+            "modele_source": "ridge_colab_export",
+            "r2_test": (
+                round(float(ridge_meta.get("r2_test")), 6)
+                if np.isfinite(ridge_meta.get("r2_test", np.nan))
+                else None
+            ),
+            "rmse_test": (
+                round(float(ridge_meta.get("rmse_test")), 6)
+                if np.isfinite(ridge_meta.get("rmse_test", np.nan))
+                else None
+            ),
+            "mae_test": (
+                round(float(ridge_meta.get("mae_test")), 6)
+                if np.isfinite(ridge_meta.get("mae_test", np.nan))
+                else None
+            ),
+            "r2_cv_mean": (
+                round(float(ridge_meta.get("r2_cv_mean")), 6)
+                if np.isfinite(ridge_meta.get("r2_cv_mean", np.nan))
+                else None
+            ),
+            "r2_cv_std": (
+                round(float(ridge_meta.get("r2_cv_std")), 6)
+                if np.isfinite(ridge_meta.get("r2_cv_std", np.nan))
+                else None
+            ),
+            "message": "La prédiction concerne le score du RN au premier tour de l'élection présidentielle 2027",
+        }
+    ), 200
 
 
 @app.route("/api/kpi_score_mean", methods=["GET"])
