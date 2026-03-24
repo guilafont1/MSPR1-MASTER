@@ -132,14 +132,22 @@ def sensitivity():
 
 def get_db_config():
     """Construit la configuration MySQL depuis les variables d'environnement."""
+    raw_ssl_ca = os.environ.get("DB_SSL_CA_PATH") or os.environ.get("MYSQL_SSL_CA")
+    ssl_ca = raw_ssl_ca
+    if raw_ssl_ca and not os.path.isabs(raw_ssl_ca):
+        # Important en déploiement (Render/Gunicorn): résoudre depuis la racine projet
+        candidate = os.path.join(os.path.dirname(__file__), raw_ssl_ca)
+        if os.path.exists(candidate):
+            ssl_ca = candidate
+
     return {
-        "host": os.environ.get("DB_HOST"),
+        "host": os.environ.get("DB_HOST") or os.environ.get("MYSQL_HOST"),
         "port": int(os.environ.get("DB_PORT", "3306")),
-        "user": os.environ.get("DB_USER"),
-        "password": os.environ.get("DB_PASSWORD"),
-        "database": os.environ.get("DB_NAME"),
+        "user": os.environ.get("DB_USER") or os.environ.get("MYSQL_USER"),
+        "password": os.environ.get("DB_PASSWORD") or os.environ.get("MYSQL_PASSWORD"),
+        "database": os.environ.get("DB_NAME") or os.environ.get("DB_DATABASE"),
         "ssl_disabled": os.environ.get("DB_SSL_REQUIRED", "true").lower() != "true",
-        "ssl_ca": os.environ.get("DB_SSL_CA_PATH"),
+        "ssl_ca": ssl_ca,
         "connection_timeout": int(os.environ.get("DB_CONNECT_TIMEOUT", "5")),
     }
 
@@ -159,9 +167,34 @@ def db_health():
             cursor.execute("SELECT 1")
             cursor.fetchone()
         connection.close()
-        return jsonify({"status": "ok", "message": "Connexion MySQL opérationnelle"}), 200
+        return jsonify(
+            {
+                "status": "ok",
+                "message": "Connexion MySQL opérationnelle",
+                "details": {
+                    "host": db_config.get("host"),
+                    "port": db_config.get("port"),
+                    "database": db_config.get("database"),
+                    "ssl_required": not bool(db_config.get("ssl_disabled")),
+                    "ssl_ca_exists": bool(db_config.get("ssl_ca")) and os.path.exists(str(db_config.get("ssl_ca"))),
+                },
+            }
+        ), 200
     except mysql.connector.Error as exc:
-        return jsonify({"status": "error", "message": f"Connexion MySQL impossible: {exc.msg}"}), 500
+        return jsonify(
+            {
+                "status": "error",
+                "message": f"Connexion MySQL impossible: {exc.msg}",
+                "details": {
+                    "host": db_config.get("host"),
+                    "port": db_config.get("port"),
+                    "database": db_config.get("database"),
+                    "ssl_required": not bool(db_config.get("ssl_disabled")),
+                    "ssl_ca_path": db_config.get("ssl_ca"),
+                    "ssl_ca_exists": bool(db_config.get("ssl_ca")) and os.path.exists(str(db_config.get("ssl_ca"))),
+                },
+            }
+        ), 500
 
 
 @app.route("/api/data_health", methods=["GET"])
