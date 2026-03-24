@@ -1,15 +1,32 @@
-# Données brutes (CSV)
+# `data_initial/`
 
-Ce dossier est prévu pour déposer les fichiers CSV bruts (non transformés) avant ingestion dans l'application.
+Données brutes (sources) utilisées par les scripts :
+- `modele_prediction/etl_mspr_to_mysql.py`
+- `modele_prediction/mspr1_master.py`
 
-Recommandations :
-- Utiliser des noms de fichiers explicites (ex: `indicateurs_communes_brut.csv`).
-- Garder ces CSV "source of truth" : ne pas les modifier après ingestion.
-- Les fichiers traités/transformés peuvent aller dans un autre dossier (ex: `data/processed/`) lors des prochaines étapes.
+Ne pas modifier les fichiers manuellement après dépôt (source of truth).
 
-Structure attendue pour l’ETL actuel (`modele_prediction/etl_mspr_to_mysql.py`) :
-- `data-presidentielle/` : `resultats-presidentielle-2002.xls`, `...-2007.xls`, `...-2012.xls`, `...-2017.csv`, `...-2022.xlsx`
-- `population-par-commune-INSEE/` : `donnees_communes.csv`
-- `revenu-des-francais-a-la-commune-2021/` : `revenu_des_francais_a_la_commune_2021.csv`
-- `Taux-de-chomage/` : `taux-de-chomage.xlsx`
+## Arborescence attendue
+
+```text
+data_initial/
+  data-presidentielle/
+    resultats-presidentielle-2002.xls
+    resultats-presidentielle-2007.xls
+    resultats-presidentielle-2012.xls
+    resultats-presidentielle-2017.csv
+    resultats-presidentielle-2022.xlsx
+  population-par-commune-INSEE/
+    donnees_communes.csv
+  revenu-des-francais-a-la-commune-2021/
+    revenu_des_francais_a_la_commune_2021.csv
+  Taux-de-chomage/
+    taux-de-chomage.xlsx
+```
+
+## Bonnes pratiques
+
+- Conserver les noms exacts attendus par les scripts.
+- Éviter les renommages et conversions de format sans mise à jour du code.
+- Versionner uniquement les fichiers nécessaires au projet.
 

@@ -1,126 +1,83 @@
-# Dashboard MSPR — Version 1
+# MSPR1-MASTER
 
-Dashboard minimal pour la gestion des évaluations et grilles MSPR (évaluations individuelles Coach, grilles Bloc 3 I1 EISI, règles de validation, sujets). Interface épurée, template moderne, 100 % Python.
+Application Flask de visualisation et projection électorale (RN 2027), avec :
+- ingestion de données brutes (`data_initial/`),
+- alimentation MySQL (`db/schema_mysql.sql` + ETL),
+- entraînement/export de modèle (`modele_prediction/mspr1_master.py`),
+- dashboard web (`templates/index.html`).
 
-## Prérequis
+## Démarrage rapide
 
-- Python 3.10+
-- Ou Docker et Docker Compose
-
-## Lancer en local (sans Docker)
+### Local (venv)
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate   # Windows
-# source .venv/bin/activate   # Linux / macOS
+.venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
 
-Ouvrir [http://localhost:5000](http://localhost:5000).
+UI : [http://localhost:5000](http://localhost:5000)
 
-Note : en local, l’app charge automatiquement le fichier `.env` (via `python-dotenv`), donc `GET /health/db` fonctionne si les variables DB sont renseignées.
-
-### Configuration BDD MySQL (SSL)
-
-1. Copier la base d'environnement :
+### Docker Compose
 
 ```bash
-copy .env.example .env
+docker compose up --build -d
 ```
 
-2. Mettre à jour `DB_PASSWORD` dans `.env`.
-3. Le certificat CA est déjà fourni dans `certs/aiven-ca.pem`.
-4. Installer les dépendances puis lancer l'app :
+UI : [http://localhost:5001](http://localhost:5001)
 
-```bash
-pip install -r requirements.txt
-python app.py
-```
+## Configuration `.env`
 
-5. Vérifier la connexion BDD :
+Variables principales :
+- `DB_HOST`
+- `DB_PORT`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_NAME`
+- `DB_SSL_REQUIRED=true`
+- `DB_SSL_CA_PATH=certs/aiven-ca.pem`
 
-```bash
-curl http://localhost:5000/health/db
-```
-
-Si tu exécutes le serveur via Docker, utilise plutôt :
+Test DB :
 
 ```bash
 curl http://localhost:5001/health/db
 ```
 
-## Lancer avec Docker
+## Pipeline données et modèle
+
+1. Déposer les fichiers bruts dans `data_initial/` (voir `data_initial/README.md`).
+2. Créer/mettre à jour le schéma MySQL (`db/schema_mysql.sql`).
+3. Charger la BDD :
 
 ```bash
-docker build -t mspr-dashboard .
-docker run --rm -d --env-file .env -p 5001:5000 mspr-dashboard
-echo "Dashboard : http://localhost:5001"
+python modele_prediction/etl_mspr_to_mysql.py
 ```
 
-Le conteneur tourne en arrière-plan. Pour l’arrêter : `docker stop $(docker ps -q --filter ancestor=mspr-dashboard)`.
-
-Ou avec Docker Compose :
+4. Entraîner/exporter le modèle Colab-like :
 
 ```bash
-docker compose up --build
+python modele_prediction/mspr1_master.py
 ```
 
-Puis [http://localhost:5001](http://localhost:5001).
+Artefacts générés :
+- `modele_prediction/ridge_multiyear_2027.joblib`
+- `modele_prediction/ridge_multiyear_2027_metadata.joblib`
 
-## Structure
+## Notes importantes
 
-- `app.py` — Application Flask (routes)
-- `templates/` — Pages HTML (Jinja2)
-- `static/css/style.css` — Styles (thème sombre, responsive)
-- `Document/` — Documents de référence (grilles, règles, sujets) — non servis par l’app
-- `data_initial/` — CSV bruts avant ingestion/traitement
-- `db/schema_mysql.sql` — schéma MySQL (staging -> DWH -> dataset_ml)
+- L’API `/api/prediction_2027_nationale` lit uniquement les artefacts exportés (pas de fallback BDD).
+- Les métriques affichées dans l’UI viennent des metadata exportées.
+- Le certificat SSL Aiven est stocké dans `certs/aiven-ca.pem`.
 
-## Pages
+## Documentation par dossier
 
-| Route           | Description                          |
-|----------------|--------------------------------------|
-| `/`            | Accueil, liens vers les sections     |
-| `/evaluations` | Évaluations individuelles Coach     |
-| `/grilles`     | Grilles MSPR (Bloc 3, I1 EISI)       |
-| `/regles`      | Règles de validation MSPR            |
-| `/sujets`      | Sujets MSPR (Bloc 3, I1 EISI)        |
-
-## Évolutions possibles (après v1)
-
-- Intégration des PDF/ODT (affichage ou liens de téléchargement)
-- Authentification (coachs / apprenants)
-- Saisie et suivi des évaluations
-- Export des grilles
-
-## ETL : ingestion des CSV vers MySQL
-
-1. Vérifier que tes CSV/Excel bruts sont dans `data_initial/` (structure attendue : `data-presidentielle/`, `population-par-commune-INSEE/`, `revenu-des-francais-a-la-commune-2021/`, `Taux-de-chomage/`).
-2. Noms de fichiers attendus (ceux utilisés par `modele_prediction/etl_mspr_to_mysql.py`) :
-
-```text
-data_initial/data-presidentielle/resultats-presidentielle-2002.xls
-data_initial/data-presidentielle/resultats-presidentielle-2007.xls
-data_initial/data-presidentielle/resultats-presidentielle-2012.xls
-data_initial/data-presidentielle/resultats-presidentielle-2017.csv
-data_initial/data-presidentielle/resultats-presidentielle-2022.xlsx
-
-data_initial/population-par-commune-INSEE/donnees_communes.csv
-data_initial/revenu-des-francais-a-la-commune-2021/revenu_des_francais_a_la_commune_2021.csv
-data_initial/Taux-de-chomage/taux-de-chomage.xlsx
-```
-3. Lancer l'ETL (depuis le conteneur si tu veux éviter les problèmes de dépendances) :
-
-```bash
-docker compose up --build -d
-docker compose exec -T dashboard python modele_prediction/etl_mspr_to_mysql.py
-```
-
-Une fois l'ETL terminé :
-- `dim_commune` est rempli
-- `dataset_ml` est rempli et peut servir à reconstruire `df_wide` et `delta` comme dans `mspr1_master.py`.
-
-## Licence
-
-Usage interne / projet MSPR.
+Chaque dossier principal contient désormais un `README.md` dédié :
+- `certs/`
+- `dashboard/`
+- `data_initial/`
+- `db/`
+- `Document/`
+- `modele_prediction/`
+- `static/`
+- `templates/`

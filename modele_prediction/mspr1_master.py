@@ -667,7 +667,23 @@ from sklearn.linear_model import Ridge
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 
 required_years = [2002, 2007, 2012, 2017, 2022]
-df_ml = df_wide.copy().dropna(subset=required_years).copy()
+
+# Base "stricte" (ancienne version) pour comparaison
+strict_n_samples = int(df_wide.copy().dropna(subset=required_years).shape[0])
+
+# Version élargie: on garde les communes avec cible 2022 disponible
+# et au moins 2 observations historiques (2002..2017), puis imputation temporelle.
+pre_cols = [2002, 2007, 2012, 2017]
+years_only = df_wide[required_years].apply(pd.to_numeric, errors="coerce")
+mask_target_ok = years_only[2022].notna()
+mask_min_history = years_only[pre_cols].notna().sum(axis=1) >= 2
+
+df_ml = years_only.loc[mask_target_ok & mask_min_history].copy()
+df_ml = df_ml.interpolate(axis=1, method="linear", limit_direction="both")
+df_ml = df_ml.dropna(subset=required_years).copy()
+
+print("n_samples strict (dropna 2002..2022):", strict_n_samples)
+print("n_samples élargi (imputation temporelle):", len(df_ml))
 
 # ===== Features AUTORISÉES pour prédire 2022 (pas d'info directe de 2022 dans X) =====
 df_ml["delta_recent"] = df_ml[2017] - df_ml[2012]
