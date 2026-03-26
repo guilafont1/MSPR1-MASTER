@@ -70,6 +70,20 @@ Artefacts générés :
 - Les métriques affichées dans l’UI viennent des metadata exportées.
 - Le certificat SSL Aiven est stocké dans `certs/aiven-ca.pem`.
 
+## Analyse socio-économique (chômage / revenu)
+Le tableau de bord enrichit les résultats avec des visualisations dérivées de `dataset_ml` :
+- scatter : `taux_chomage` vs `score_rn` (pour une année donnée)
+- scatter : `revenu_median` vs `score_rn`
+- corrélations Pearson (chômage, revenu, population) avec `score_rn`
+
+API dédiée :
+- `/api/socioeco_insights?year=2022&max_points=900`
+
+Test rapide (Docker ou local) :
+```bash
+curl "http://localhost:5001/api/socioeco_insights?year=2022&max_points=900"
+```
+
 ## Documentation par dossier
 
 Chaque dossier principal contient désormais un `README.md` dédié :

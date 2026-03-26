@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"/>
   <style>
     :root {
       --bg:        #0a0c10;
@@ -408,6 +409,60 @@
     .leaflet-popup.map-popup .leaflet-popup-tip:before {
       border-top-color: rgba(0,229,255,0.3) !important;
     }
+
+    /* ── SELECT2 (dark) ───────────────────────────────────────────────────── */
+    .select2-container { width: 100% !important; }
+    .select2-container--default .select2-selection--single {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.9rem;
+      line-height: 40px;
+      padding-left: 0.85rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+      height: 40px;
+      right: 10px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow b {
+      border-color: var(--muted) transparent transparent transparent;
+    }
+    .select2-dropdown {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .select2-container--default .select2-results__option {
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.85rem;
+      padding: 10px 12px;
+    }
+    .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+      background: rgba(0,229,255,0.10);
+      color: var(--text);
+    }
+    .select2-container--default .select2-results__option--selected {
+      background: rgba(0,229,255,0.16);
+      color: var(--text);
+    }
+    .select2-container--default .select2-search--dropdown .select2-search__field {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'IBM Plex Mono', monospace;
+      padding: 8px 10px;
+      outline: none;
+    }
   </style>
 </head>
 <body>
@@ -421,6 +476,9 @@
     <nav class="sidebar-nav">
       <a href="#" class="nav-item active" data-view="dashboard">
         <span class="nav-icon">◈</span><span>Tableau de Bord</span>
+      </a>
+      <a href="#" class="nav-item" data-view="analyse">
+        <span class="nav-icon">◉</span><span>Analyse Socio-éco</span>
       </a>
       <a href="#" class="nav-item" data-view="prediction">
         <span class="nav-icon">◐</span><span>Moteur Prédictif</span>
@@ -438,7 +496,7 @@
     <!-- ══════════════════════════ VUE 1 · DASHBOARD ══════════════════════════ -->
     <section class="view active" id="view-dashboard">
       <header class="view-header">
-        <div class="view-tag mono">VUE 01 / 02</div>
+        <div class="view-tag mono">VUE 01 / 03</div>
         <h1 class="view-title">Tableau de Bord</h1>
         <p class="view-subtitle">Modèle de régression linéaire — France entière</p>
       </header>
@@ -491,13 +549,72 @@
           <div id="topEvolutionBarsRight" style="padding:0 0.5rem 0.25rem 0.5rem"></div>
         </div>
       </div>
-
     </section>
 
-    <!-- ══════════════════════════ VUE 2 · MOTEUR PRÉDICTIF ══════════════════════════ -->
+    <!-- ══════════════════════════ VUE 2 · ANALYSE SOCIO-ÉCO ══════════════════════════ -->
+    <section class="view" id="view-analyse">
+      <header class="view-header">
+        <div class="view-tag mono">VUE 02 / 03</div>
+        <h1 class="view-title">Analyse Socio-économique</h1>
+        <p class="view-subtitle">Exploitation de `taux_chomage` et `revenu_median` par année</p>
+      </header>
+
+      <div class="card card-full" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <span class="mono card-tag">SOCIO-ÉCONOMIQUE</span>
+          <span class="card-title">Carte France par département</span>
+        </div>
+
+        <div class="predict-form-row" style="padding: 0.25rem 0;">
+          <div class="predict-input-group" style="min-width: 210px;">
+            <div class="predict-label">Année</div>
+            <select id="socioecoYear" class="predict-input">
+              <option value="2002">2002</option>
+              <option value="2007">2007</option>
+              <option value="2012">2012</option>
+              <option value="2017">2017</option>
+              <option value="2022" selected>2022</option>
+            </select>
+            <div class="predict-hint">Agrégation par département depuis `dataset_ml`.</div>
+          </div>
+          <div class="mono" id="socioecoMeta" style="color:var(--muted);font-size:0.72rem;align-self:flex-end;"></div>
+        </div>
+      </div>
+
+      <div class="card card-full" style="margin-bottom: 1.5rem;">
+        <div class="card-header">
+          <span class="mono card-tag">CARTE FRANCE</span>
+          <span class="card-title">Choroplèthe par département</span>
+        </div>
+        <div id="socioecoMap" class="leaflet-map" style="height:420px;"></div>
+        <div class="mono" id="socioecoMapLegend" style="color:var(--muted);font-size:0.66rem;margin-top:0.6rem;"></div>
+      </div>
+
+      <div class="row-split">
+        <div class="card">
+          <div class="card-header">
+            <span class="mono card-tag">CHÔMAGE</span>
+            <span class="card-title">Carte (taux de chômage)</span>
+          </div>
+          <div id="socioecoChomageMiniMap" class="leaflet-map" style="height:260px;"></div>
+          <div class="mono" id="socioecoChomageMiniLegend" style="color:var(--muted);font-size:0.66rem;margin-top:0.6rem;"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="mono card-tag">REVENU</span>
+            <span class="card-title">Carte (revenu médian)</span>
+          </div>
+          <div id="socioecoRevenuMiniMap" class="leaflet-map" style="height:260px;"></div>
+          <div class="mono" id="socioecoRevenuMiniLegend" style="color:var(--muted);font-size:0.66rem;margin-top:0.6rem;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════ VUE 3 · MOTEUR PRÉDICTIF ══════════════════════════ -->
     <section class="view" id="view-prediction">
       <header class="view-header">
-        <div class="view-tag mono">VUE 02 / 02</div>
+        <div class="view-tag mono">VUE 03 / 03</div>
         <h1 class="view-title">Moteur Prédictif</h1>
         <p class="view-subtitle">Projection 2027 automatique (logique Colab)</p>
       </header>
@@ -549,6 +666,8 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script>
 
   // ── PALETTE ───────────────────────────────────────────────────────────────
@@ -561,6 +680,182 @@
     purple: '#ab47bc',
     grid:   'rgba(255,255,255,0.06)',
   };
+
+  // ── DEBUG ────────────────────────────────────────────────────────────────
+  const SOCIOECO_DEBUG = true;
+  function dbg(...args) {
+    if (SOCIOECO_DEBUG) console.log('[SOCIOECO]', ...args);
+  }
+
+  // ── CHARTS (Analyse) ──────────────────────────────────────────────────────
+  let socioecoChomageMiniMap = null;
+  let socioecoChomageMiniLayer = null;
+  let socioecoRevenuMiniMap = null;
+  let socioecoRevenuMiniLayer = null;
+
+  function destroyIfChart(chart) {
+    if (chart && typeof chart.destroy === 'function') chart.destroy();
+  }
+
+  async function ensureChomageMiniMapInit() {
+    if (socioecoChomageMiniMap) return;
+    const el = document.getElementById('socioecoChomageMiniMap');
+    if (!el) return;
+    socioecoChomageMiniMap = L.map('socioecoChomageMiniMap', {
+      center: [46.5, 2.5],
+      zoom: 5.1,
+      scrollWheelZoom: false,
+      attributionControl: false,
+      zoomControl: false,
+    });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OSM &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(socioecoChomageMiniMap);
+    socioecoChomageMiniMap.whenReady(() => {
+      requestAnimationFrame(() => socioecoChomageMiniMap?.invalidateSize(true));
+      setTimeout(() => socioecoChomageMiniMap?.invalidateSize(true), 60);
+    });
+  }
+
+  async function renderChomageMiniMap(year, byDep) {
+    const legendEl = document.getElementById('socioecoChomageMiniLegend');
+    try {
+      if (!isAnalyseViewActive()) return;
+      await ensureChomageMiniMapInit();
+      socioecoChomageMiniMap.invalidateSize(true);
+      const geojson = await getDepartementsGeoJson();
+
+      const values = Object.values(byDep || {})
+        .map(v => toFiniteNumberOrNaN(v?.taux_chomage))
+        .filter(Number.isFinite);
+      const min = values.length ? Math.min(...values) : Number.NaN;
+      const max = values.length ? Math.max(...values) : Number.NaN;
+      const hasScale = Number.isFinite(min) && Number.isFinite(max) && max > min;
+
+      if (socioecoChomageMiniLayer) {
+        socioecoChomageMiniMap.removeLayer(socioecoChomageMiniLayer);
+      }
+
+      socioecoChomageMiniLayer = L.geoJSON(geojson, {
+        style: (feature) => {
+          const code = normalizeDepCode(feature?.properties?.code);
+          const obj = byDep?.[code];
+          const v = obj ? toFiniteNumberOrNaN(obj.taux_chomage) : Number.NaN;
+          const ratio = hasScale && Number.isFinite(v) ? (v - min) / (max - min) : 0;
+          const fill = Number.isFinite(v) ? getMapColorByRatio(ratio) : 'rgba(120,120,120,0.25)';
+          return {
+            color: 'rgba(255,255,255,0.12)',
+            weight: 1,
+            fillColor: fill,
+            fillOpacity: Number.isFinite(v) ? 0.70 : 0.10,
+          };
+        },
+        onEachFeature: (feature, layer) => {
+          const code = normalizeDepCode(feature?.properties?.code);
+          const name = feature?.properties?.nom || code;
+          const obj = byDep?.[code];
+          const v = obj ? toFiniteNumberOrNaN(obj.taux_chomage) : Number.NaN;
+          const txt = Number.isFinite(v) ? `${v.toFixed(1)}%` : 'n/a';
+          layer.bindTooltip(`${name} (${code})<br>Taux chômage: ${txt}`, { sticky: true, className: 'map-popup' });
+        },
+      }).addTo(socioecoChomageMiniMap);
+
+      const bounds = socioecoChomageMiniLayer.getBounds();
+      if (bounds && bounds.isValid()) {
+        socioecoChomageMiniMap.fitBounds(bounds, { padding: [6, 6] });
+      }
+
+      if (legendEl) {
+        const minText = Number.isFinite(min) ? `${min.toFixed(1)}%` : 'n/a';
+        const maxText = Number.isFinite(max) ? `${max.toFixed(1)}%` : 'n/a';
+        legendEl.innerHTML = `Taux chômage (${year}) — min ${minText} · max ${maxText}`;
+      }
+    } catch (e) {
+      if (legendEl) legendEl.textContent = `Mini-carte chômage indisponible (${year}).`;
+    }
+  }
+
+  async function ensureRevenuMiniMapInit() {
+    if (socioecoRevenuMiniMap) return;
+    const el = document.getElementById('socioecoRevenuMiniMap');
+    if (!el) return;
+    socioecoRevenuMiniMap = L.map('socioecoRevenuMiniMap', {
+      center: [46.5, 2.5],
+      zoom: 5.1,
+      scrollWheelZoom: false,
+      attributionControl: false,
+      zoomControl: false,
+    });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OSM &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(socioecoRevenuMiniMap);
+    socioecoRevenuMiniMap.whenReady(() => {
+      requestAnimationFrame(() => socioecoRevenuMiniMap?.invalidateSize(true));
+      setTimeout(() => socioecoRevenuMiniMap?.invalidateSize(true), 60);
+    });
+  }
+
+  async function renderRevenuMiniMap(year, byDep) {
+    const legendEl = document.getElementById('socioecoRevenuMiniLegend');
+    try {
+      if (!isAnalyseViewActive()) return;
+      await ensureRevenuMiniMapInit();
+      socioecoRevenuMiniMap.invalidateSize(true);
+      const geojson = await getDepartementsGeoJson();
+
+      const values = Object.values(byDep || {})
+        .map(v => toFiniteNumberOrNaN(v?.revenu_median))
+        .filter(Number.isFinite);
+      const min = values.length ? Math.min(...values) : Number.NaN;
+      const max = values.length ? Math.max(...values) : Number.NaN;
+      const hasScale = Number.isFinite(min) && Number.isFinite(max) && max > min;
+
+      if (socioecoRevenuMiniLayer) {
+        socioecoRevenuMiniMap.removeLayer(socioecoRevenuMiniLayer);
+      }
+
+      socioecoRevenuMiniLayer = L.geoJSON(geojson, {
+        style: (feature) => {
+          const code = normalizeDepCode(feature?.properties?.code);
+          const obj = byDep?.[code];
+          const v = obj ? toFiniteNumberOrNaN(obj.revenu_median) : Number.NaN;
+          const ratio = hasScale && Number.isFinite(v) ? (v - min) / (max - min) : 0;
+          const fill = Number.isFinite(v) ? getMapColorByRatio(ratio) : 'rgba(120,120,120,0.25)';
+          return {
+            color: 'rgba(255,255,255,0.12)',
+            weight: 1,
+            fillColor: fill,
+            fillOpacity: Number.isFinite(v) ? 0.70 : 0.10,
+          };
+        },
+        onEachFeature: (feature, layer) => {
+          const code = normalizeDepCode(feature?.properties?.code);
+          const name = feature?.properties?.nom || code;
+          const obj = byDep?.[code];
+          const v = obj ? toFiniteNumberOrNaN(obj.revenu_median) : Number.NaN;
+          const txt = Number.isFinite(v) ? formatMoneyEUR(v) : 'n/a';
+          layer.bindTooltip(`${name} (${code})<br>Revenu médian: ${txt}`, { sticky: true, className: 'map-popup' });
+        },
+      }).addTo(socioecoRevenuMiniMap);
+
+      const bounds = socioecoRevenuMiniLayer.getBounds();
+      if (bounds && bounds.isValid()) {
+        socioecoRevenuMiniMap.fitBounds(bounds, { padding: [6, 6] });
+      }
+
+      if (legendEl) {
+        const minText = Number.isFinite(min) ? formatMoneyEUR(min) : 'n/a';
+        const maxText = Number.isFinite(max) ? formatMoneyEUR(max) : 'n/a';
+        legendEl.innerHTML = `Revenu médian (${year}) — min ${minText} · max ${maxText}`;
+      }
+    } catch (e) {
+      if (legendEl) legendEl.textContent = `Mini-carte revenu indisponible (${year}).`;
+    }
+  }
 
   // ── DB HEALTH (front ↔ BDD) ──────────────────────────────────────────────
   // Montre si la connexion MySQL/Aiven répond correctement.
@@ -588,6 +883,279 @@
   Chart.defaults.font.family = "'IBM Plex Mono', monospace";
   Chart.defaults.font.size = 11;
 
+  // ── SOCIO-ÉCO MAP ─────────────────────────────────────────────────────────
+  let socioecoLeafletMap = null;
+  let socioecoGeoJsonLayer = null;
+  let socioecoDeptGeoJson = null;
+
+  function destroyChartIfExists(chartInstance) {
+    if (chartInstance && typeof chartInstance.destroy === 'function') {
+      chartInstance.destroy();
+    }
+  }
+
+  function formatMoneyEUR(v) {
+    if (!Number.isFinite(v)) return 'n/a';
+    return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(v) + ' €';
+  }
+
+  function formatPct(v, digits = 1) {
+    if (!Number.isFinite(v)) return 'n/a';
+    return `${v.toFixed(digits)}%`;
+  }
+
+  function socioecoMetricLabel(metricKey) {
+    if (metricKey === 'score_rn_pct') return 'Score RN moyen';
+    if (metricKey === 'taux_chomage') return 'Taux de chômage';
+    if (metricKey === 'revenu_median') return 'Revenu médian';
+    return metricKey;
+  }
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function getMapColorByRatio(ratio) {
+    // Palette faible -> forte : bleu -> rouge.
+    const t = Math.max(0, Math.min(1, ratio));
+    const c0 = { r: 79,  g: 195, b: 247 }; // bleu (faible)
+    const c1 = { r: 239, g: 83,  b: 80  }; // danger
+    const r = Math.round(lerp(c0.r, c1.r, t));
+    const g = Math.round(lerp(c0.g, c1.g, t));
+    const b = Math.round(lerp(c0.b, c1.b, t));
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function formatMetricValue(metricKey, value) {
+    if (!Number.isFinite(value)) return 'n/a';
+    if (metricKey === 'revenu_median') return formatMoneyEUR(value);
+    return formatPct(value, 1);
+  }
+
+  function toFiniteNumberOrNaN(v) {
+    // Évite le piège Number(null) === 0
+    if (v === null || v === undefined) return Number.NaN;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : Number.NaN;
+  }
+
+  function isAnalyseViewActive() {
+    const view = document.getElementById('view-analyse');
+    return !!(view && view.classList.contains('active'));
+  }
+
+  function normalizeDepCode(dep) {
+    if (dep === null || dep === undefined) return '';
+    const s = String(dep).trim().toUpperCase();
+    if (/^\d$/.test(s)) return `0${s}`;
+    return s;
+  }
+
+  async function ensureSocioecoMapInit() {
+    if (socioecoLeafletMap) return;
+    const mapEl = document.getElementById('socioecoMap');
+    if (!mapEl) return;
+    socioecoLeafletMap = L.map('socioecoMap', {
+      center: [46.5, 2.5],
+      zoom: 5.2,
+      scrollWheelZoom: false,
+      attributionControl: false,
+    });
+    // Fond sombre (noir) pour matcher le thème.
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OSM &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(socioecoLeafletMap);
+
+    // Assure un recalcul de taille dès que Leaflet est prêt.
+    socioecoLeafletMap.whenReady(() => {
+      requestAnimationFrame(() => socioecoLeafletMap?.invalidateSize(true));
+      setTimeout(() => socioecoLeafletMap?.invalidateSize(true), 50);
+      setTimeout(() => socioecoLeafletMap?.invalidateSize(true), 250);
+    });
+  }
+
+  async function getDepartementsGeoJson() {
+    if (socioecoDeptGeoJson) return socioecoDeptGeoJson;
+    // Même origine (proxy Flask) pour éviter CORS navigateur.
+    const url = '/geo/departements.geojson';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('GeoJSON départements indisponible');
+    const raw = await res.json();
+    // Robustesse: parfois certaines sources renvoient une liste de Features.
+    if (Array.isArray(raw)) {
+      const isFeature = raw.length > 0 && raw[0] && raw[0].type === 'Feature';
+      if (isFeature) {
+        socioecoDeptGeoJson = { type: 'FeatureCollection', features: raw };
+      } else {
+        // Pas de géométrie => FeatureCollection vide (on loggue, la carte affichera une erreur).
+        socioecoDeptGeoJson = { type: 'FeatureCollection', features: [] };
+      }
+    } else {
+      socioecoDeptGeoJson = raw;
+    }
+    try {
+      const feats = socioecoDeptGeoJson?.features || [];
+      dbg('GeoJSON départements chargé', {
+        rawType: Array.isArray(raw) ? 'array' : (raw?.type || typeof raw),
+        featureCount: feats.length,
+        sample0: feats[0]?.properties ? {
+          code: feats[0].properties.code,
+          nom: feats[0].properties.nom,
+          keys: Object.keys(feats[0].properties).slice(0, 8),
+        } : null,
+      });
+    } catch (e) {
+      dbg('GeoJSON debug error', e);
+    }
+    return socioecoDeptGeoJson;
+  }
+
+  async function renderSocioecoMap(year, metricKey) {
+    const legendEl = document.getElementById('socioecoMapLegend');
+    const metaEl = document.getElementById('socioecoMeta');
+    try {
+      // Leaflet bug classique: si la map est créée dans une vue cachée, la taille est incorrecte.
+      // On ne rend la carte que lorsque l'onglet Analyse est visible.
+      if (!isAnalyseViewActive()) {
+        if (legendEl) legendEl.textContent = 'Ouvre l’onglet Analyse pour charger la carte.';
+        return;
+      }
+      await ensureSocioecoMapInit();
+      // Recalcule la taille réelle du conteneur (après activation de la vue).
+      // On le fait plusieurs fois car certains layouts mettent 1-2 frames à se stabiliser.
+      requestAnimationFrame(() => socioecoLeafletMap?.invalidateSize(true));
+      setTimeout(() => socioecoLeafletMap?.invalidateSize(true), 30);
+      setTimeout(() => socioecoLeafletMap?.invalidateSize(true), 180);
+
+      const [geojson, mapRes] = await Promise.all([
+        getDepartementsGeoJson(),
+        fetch(`/api/socioeco_map?year=${encodeURIComponent(year)}&t=${Date.now()}`, { method: 'GET', cache: 'no-store' }),
+      ]);
+      const payload = await mapRes.json();
+      if (!payload || payload.status !== 'ok') throw new Error('socioeco_map KO');
+
+      const byDep = payload.by_departement || {};
+      const min = payload.min_max?.[metricKey]?.min;
+      const max = payload.min_max?.[metricKey]?.max;
+      const hasScale = Number.isFinite(min) && Number.isFinite(max) && max > min;
+
+      if (metaEl) {
+        const depCount = Object.keys(byDep).length;
+        metaEl.textContent = `Année ${year} • ${socioecoMetricLabel(metricKey)} • ${depCount} départements`;
+      }
+
+      // Mini-cartes bas (chômage + revenu) à partir du même payload.
+      renderChomageMiniMap(year, byDep);
+      renderRevenuMiniMap(year, byDep);
+
+      // Logs ciblés pour comprendre ce qui est envoyé et matché.
+      try {
+        const depKeys = Object.keys(byDep);
+        const sampleKeys = depKeys.slice(0, 8);
+        const sampleVals = {};
+        sampleKeys.forEach(k => { sampleVals[k] = byDep[k]?.[metricKey]; });
+        dbg('socioeco_map payload', {
+          year: payload.year,
+          metricKey,
+          depCount: depKeys.length,
+          minMax: payload.min_max?.[metricKey],
+          hasScale,
+          sample: sampleVals,
+        });
+        const feats = geojson?.features || [];
+        const featCodes = feats.slice(0, 8).map(f => f?.properties?.code);
+        dbg('GeoJSON feature codes sample', featCodes);
+      } catch (e) {
+        dbg('payload debug error', e);
+      }
+
+      if (socioecoGeoJsonLayer) {
+        socioecoLeafletMap.removeLayer(socioecoGeoJsonLayer);
+      }
+
+      socioecoGeoJsonLayer = L.geoJSON(geojson, {
+        style: (feature) => {
+          const featureCode = normalizeDepCode(feature?.properties?.code);
+          const depValueObj = byDep[featureCode] || (featureCode === '2A' || featureCode === '2B' ? byDep['20'] : null);
+          const valueNum = depValueObj ? toFiniteNumberOrNaN(depValueObj[metricKey]) : Number.NaN;
+          const ratio = hasScale && Number.isFinite(valueNum) ? (valueNum - min) / (max - min) : 0;
+          const fill = Number.isFinite(valueNum) ? getMapColorByRatio(ratio) : 'rgba(120,120,120,0.25)';
+          return {
+            // Contours plus sombres sur fond clair.
+            color: Number.isFinite(valueNum) ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.10)',
+            weight: 1.2,
+            fillColor: fill,
+            fillOpacity: Number.isFinite(valueNum) ? 0.70 : 0.10,
+          };
+        },
+        onEachFeature: (feature, layer) => {
+          const featureCode = normalizeDepCode(feature?.properties?.code);
+          const featureName = feature?.properties?.nom || feature?.properties?.name || featureCode;
+          const depValueObj = byDep[featureCode] || (featureCode === '2A' || featureCode === '2B' ? byDep['20'] : null);
+          const valueNum = depValueObj ? toFiniteNumberOrNaN(depValueObj[metricKey]) : Number.NaN;
+          const nCommunes = depValueObj?.n_communes;
+          const metricText = formatMetricValue(metricKey, valueNum);
+          const metricName = socioecoMetricLabel(metricKey);
+          if (SOCIOECO_DEBUG && (!depValueObj || !Number.isFinite(valueNum))) {
+            dbg('No match/value for feature', { featureCode, featureName, metricKey, value: valueNum });
+          }
+          layer.bindTooltip(
+            `${featureName} (${featureCode})<br>${metricName}: ${metricText}<br>Communes: ${Number.isFinite(nCommunes) ? nCommunes : 'n/a'}`,
+            { sticky: true, className: 'map-popup' }
+          );
+          layer.on({
+            mouseover: (e) => e.target.setStyle({ weight: 2.2, color: 'rgba(0,0,0,0.75)' }),
+            mouseout: (e) => socioecoGeoJsonLayer.resetStyle(e.target),
+          });
+        },
+      }).addTo(socioecoLeafletMap);
+
+      // Après ajout du layer, on invalide à nouveau pour éviter le rendu "coin haut-gauche".
+      requestAnimationFrame(() => socioecoLeafletMap?.invalidateSize(true));
+      setTimeout(() => socioecoLeafletMap?.invalidateSize(true), 60);
+
+      const bounds = socioecoGeoJsonLayer.getBounds();
+      if (bounds && bounds.isValid()) {
+        socioecoLeafletMap.fitBounds(bounds, { padding: [18, 18] });
+      }
+
+      if (legendEl) {
+        const minText = formatMetricValue(metricKey, toFiniteNumberOrNaN(min));
+        const maxText = formatMetricValue(metricKey, toFiniteNumberOrNaN(max));
+        const mid = (Number.isFinite(min) && Number.isFinite(max)) ? (Number(min) + Number(max)) / 2 : Number.NaN;
+        const midText = formatMetricValue(metricKey, toFiniteNumberOrNaN(mid));
+
+        legendEl.innerHTML = `
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:0.62rem;letter-spacing:0.08em;color:var(--muted);text-transform:uppercase">
+              ${socioecoMetricLabel(metricKey)} · échelle
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-left:auto;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:6px">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:rgba(120,120,120,0.25);border:1px solid rgba(255,255,255,0.12)"></span>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--muted)">No data</span>
+              </span>
+            </div>
+          </div>
+
+          <div style="margin-top:8px;display:grid;grid-template-columns:1fr;gap:6px">
+            <div style="position:relative;height:10px;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,0.18);
+                        background:linear-gradient(90deg, rgb(79,195,247), rgb(239,83,80));">
+              <span style="position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:rgba(255,255,255,0.35)"></span>
+            </div>
+            <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.66rem;color:var(--text)">${minText}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.62rem;color:var(--muted)">${midText}</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.66rem;color:var(--text)">${maxText}</span>
+            </div>
+          </div>
+        `;
+      }
+    } catch (e) {
+      if (metaEl) metaEl.textContent = '';
+      if (legendEl) legendEl.textContent = `Carte indisponible (${year}). Vérifie l'accès réseau pour le GeoJSON des départements.`;
+    }
+  }
+
   // ── NAVIGATION ────────────────────────────────────────────────────────────
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', e => {
@@ -597,6 +1165,17 @@
       document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
       item.classList.add('active');
       document.getElementById(`view-${target}`).classList.add('active');
+
+      // Répare l'affichage Leaflet lors du switch vers une vue précédemment cachée.
+      if (target === 'analyse') {
+        const yearEl = document.getElementById('socioecoYear');
+        const y = yearEl ? parseInt(yearEl.value, 10) : 2022;
+        // Lazy init + invalideSize après layout.
+        requestAnimationFrame(() => socioecoLeafletMap?.invalidateSize(true));
+        setTimeout(() => socioecoLeafletMap?.invalidateSize(true), 30);
+        setTimeout(() => socioecoLeafletMap?.invalidateSize(true), 200);
+        setTimeout(() => { renderSocioecoMap(y, 'score_rn_pct'); }, 60);
+      }
     });
   });
 
@@ -759,6 +1338,45 @@
     } catch (e) {
       targets.forEach(target => { target.textContent = 'Données indisponibles.'; });
     }
+  }
+
+  function initSocioeco() {
+    const select = document.getElementById('socioecoYear');
+    if (!select) return;
+    const year = parseInt(select.value, 10);
+    const metric = 'score_rn_pct';
+    const metaEl = document.getElementById('socioecoMeta');
+    if (metaEl) metaEl.textContent = '';
+    if (isAnalyseViewActive()) {
+      renderSocioecoMap(year, metric);
+    }
+    select.addEventListener('change', () => {
+      const y = parseInt(select.value, 10);
+      renderSocioecoMap(y, 'score_rn_pct');
+    });
+  }
+
+  function initSelect2() {
+    if (!window.jQuery || !jQuery.fn || !jQuery.fn.select2) return;
+    const $year = jQuery('#socioecoYear');
+
+    // Select2 remplace l'UI native, mais on garde la logique existante via events change.
+    [$year].forEach($el => {
+      if ($el.length === 0) return;
+      // Evite double-init si reload partiel
+      if ($el.hasClass('select2-hidden-accessible')) return;
+      $el.select2({
+        width: '100%',
+        minimumResultsForSearch: Infinity, // pas de champ recherche (options courtes)
+      });
+    });
+
+    // Avec Select2, on force un refresh explicite sur l'événement select2 (plus fiable que change dans certains cas).
+    $year.on('select2:select', () => {
+      const y = parseInt($year.val(), 10);
+      dbg('select2 year select', { y, metric: 'score_rn_pct' });
+      renderSocioecoMap(y, 'score_rn_pct');
+    });
   }
 
   map.setMaxBounds([[41.3, -5.5], [51.2, 10.0]]);
@@ -1019,6 +1637,8 @@
   initCitiesPredictions();
   initKpiTopEvolutionBars();
   initPredictionNational();
+  initSocioeco();
+  initSelect2();
 
   </script>
 </body>

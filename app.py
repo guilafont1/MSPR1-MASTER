@@ -7,6 +7,8 @@ import warnings
 import numpy as np
 import pandas as pd
 import joblib
+import json
+import urllib.request
 from dotenv import load_dotenv
 import mysql.connector
 from flask import Flask, render_template, request, jsonify
@@ -15,6 +17,9 @@ load_dotenv()  # Charge automatiquement les variables depuis `.env` (utile en lo
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")
+
+# Cache simple en mémoire pour le GeoJSON départements (évite de refetch à chaque refresh).
+_DEPARTEMENTS_GEOJSON_CACHE = None
 
 # Chargement du modèle au démarrage
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "modele_prediction", "linear_regression_model.joblib")
@@ -903,6 +908,277 @@ def kpi_correlations_2022():
         return jsonify({"status": "ok", "corr": corr}), 200
     except mysql.connector.Error as exc:
         return jsonify({"status": "error", "message": f"Erreur DB: {exc.msg}"}), 500
+
+
+@app.route("/api/socioeco_insights", methods=["GET"])
+def socioeco_insights():
+    """
+    Visualisations socio-éco (chômage & revenu) vs vote RN.
+
+    Paramètres query :
+    - year (int, défaut 2022) : année parmi (2002, 2007, 2012, 2017, 2022)
+    - max_points (int, défaut 900) : nombre max de points envoyés au front (scatter)
+
+    Retour :
+    - scatter points (revenu_median et taux_chomage) échantillonnés
+    - corrélations Pearson entre score_rn et variables socio-éco
+    - top communes (chômage max, revenu min, revenu max)
+    """
+    db_config = get_db_config()
+    required_keys = {"host", "user", "password", "database"}
+    missing = [k for k, v in db_config.items() if k in required_keys and not v]
+    if missing:
+        return jsonify({"status": "error", "message": f"Variables manquantes: {', '.join(missing)}"}), 500
+
+    try:
+        year = int(request.args.get("year", 2022))
+        max_points = int(request.args.get("max_points", 900))
+    except ValueError:
+        return jsonify({"status": "error", "message": "Paramètres year/max_points invalides"}), 400
+
+    allowed_years = {2002, 2007, 2012, 2017, 2022}
+    if year not in allowed_years:
+        return jsonify({"status": "error", "message": f"year invalide. Attendu dans {sorted(allowed_years)}"}), 400
+
+    max_points = max(100, min(max_points, 5000))
+
+    # On récupère uniquement les variables nécessaires (évite de surcharger le JSON).
+    query = """
+        SELECT
+            COALESCE(d.nom_commune, CAST(dm.codgeo AS CHAR)) AS nom_commune,
+            dm.score_rn,
+            dm.revenu_median,
+            dm.population,
+            dm.taux_chomage
+        FROM dataset_ml dm
+        LEFT JOIN dim_commune d
+            ON d.codgeo = dm.codgeo
+        WHERE dm.annee = %s
+          AND dm.score_rn IS NOT NULL
+          AND dm.revenu_median IS NOT NULL
+          AND dm.taux_chomage IS NOT NULL
+          AND dm.population IS NOT NULL
+    """
+
+    try:
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
+        cursor.execute(query, (year,))
+        rows = cursor.fetchall()
+        cursor.close()
+        connection.close()
+
+        if not rows:
+            return jsonify({"status": "error", "message": "Aucune donnée socio-éco pour l'année demandée"}), 404
+
+        df = pd.DataFrame(
+            rows,
+            columns=["nom_commune", "score_rn", "revenu_median", "population", "taux_chomage"],
+        )
+        df = df.dropna()
+        if df.empty:
+            return jsonify({"status": "error", "message": "Données socio-éco vides après dropna"}), 404
+
+        # Corrélations Pearson (sur score_rn en [0..1])
+        corr_df = df[["score_rn", "revenu_median", "population", "taux_chomage"]].corr(numeric_only=True)
+        corr_with_score = {
+            "revenu_median": float(corr_df.loc["score_rn", "revenu_median"]),
+            "population": float(corr_df.loc["score_rn", "population"]),
+            "taux_chomage": float(corr_df.loc["score_rn", "taux_chomage"]),
+        }
+
+        # Top listes (sur score_rn en % pour affichage)
+        df["score_rn_pct"] = df["score_rn"].astype(float) * 100.0
+        df_top_chom = df.sort_values("taux_chomage", ascending=False).head(10)
+        df_top_rev_low = df.sort_values("revenu_median", ascending=True).head(10)
+        df_top_rev_high = df.sort_values("revenu_median", ascending=False).head(10)
+
+        top_by_taux_chomage = [
+            {
+                "nom_commune": str(r["nom_commune"]),
+                "taux_chomage": float(r["taux_chomage"]),
+                "score_rn_pct": float(r["score_rn_pct"]),
+            }
+            for _, r in df_top_chom.iterrows()
+        ]
+        top_by_revenu_low = [
+            {
+                "nom_commune": str(r["nom_commune"]),
+                "revenu_median": float(r["revenu_median"]),
+                "score_rn_pct": float(r["score_rn_pct"]),
+            }
+            for _, r in df_top_rev_low.iterrows()
+        ]
+        top_by_revenu_high = [
+            {
+                "nom_commune": str(r["nom_commune"]),
+                "revenu_median": float(r["revenu_median"]),
+                "score_rn_pct": float(r["score_rn_pct"]),
+            }
+            for _, r in df_top_rev_high.iterrows()
+        ]
+
+        # Echantillonnage linéaire pour scatter (couverture par score_rn).
+        n = int(len(df))
+        if n <= max_points:
+            df_sample = df
+            used_max_points = n
+        else:
+            df_sorted = df.sort_values("score_rn", ascending=True).reset_index(drop=True)
+            idx = np.linspace(0, n - 1, num=max_points).astype(int)
+            df_sample = df_sorted.iloc[idx]
+            used_max_points = max_points
+
+        # Points pour scatter (x brut, y en %)
+        points_revenu = [
+            {"x": float(r["revenu_median"]), "y": float(r["score_rn_pct"]), "commune": str(r["nom_commune"])}
+            for _, r in df_sample[["revenu_median", "score_rn_pct", "nom_commune"]].iterrows()
+        ]
+        points_chomage = [
+            {"x": float(r["taux_chomage"]), "y": float(r["score_rn_pct"]), "commune": str(r["nom_commune"])}
+            for _, r in df_sample[["taux_chomage", "score_rn_pct", "nom_commune"]].iterrows()
+        ]
+
+        payload = {
+            "status": "ok",
+            "year": year,
+            "n_communes": int(n),
+            "sample_max_points": int(max_points),
+            "used_max_points": int(used_max_points),
+            "summary": {
+                "median_revenu_median": float(df["revenu_median"].median()),
+                "median_taux_chomage": float(df["taux_chomage"].median()),
+            },
+            "correlations_with_score": corr_with_score,
+            "top_by_taux_chomage": top_by_taux_chomage,
+            "top_by_revenu_low": top_by_revenu_low,
+            "top_by_revenu_high": top_by_revenu_high,
+            "scatter_points": {
+                "revenu_median": points_revenu,
+                "taux_chomage": points_chomage,
+            },
+        }
+        return jsonify(payload), 200
+    except mysql.connector.Error as exc:
+        return jsonify({"status": "error", "message": f"Erreur DB: {exc.msg}"}), 500
+
+
+@app.route("/api/socioeco_map", methods=["GET"])
+def socioeco_map():
+    """
+    Données agrégées par département pour une carte choroplèthe France.
+
+    Paramètre query :
+    - year (int, défaut 2022), limité à (2002, 2007, 2012, 2017, 2022)
+
+    Retour :
+    - by_departement: { "01": {"score_rn_pct": ..., "revenu_median": ..., "taux_chomage": ...}, ... }
+    - min_max par métrique (utile pour normaliser l'échelle de couleurs côté front)
+    """
+    db_config = get_db_config()
+    required_keys = {"host", "user", "password", "database"}
+    missing = [k for k, v in db_config.items() if k in required_keys and not v]
+    if missing:
+        return jsonify({"status": "error", "message": f"Variables manquantes: {', '.join(missing)}"}), 500
+
+    try:
+        year = int(request.args.get("year", 2022))
+    except ValueError:
+        return jsonify({"status": "error", "message": "Paramètre year invalide"}), 400
+
+    allowed_years = {2002, 2007, 2012, 2017, 2022}
+    if year not in allowed_years:
+        return jsonify({"status": "error", "message": f"year invalide. Attendu dans {sorted(allowed_years)}"}), 400
+
+    query = """
+        SELECT
+            code_departement,
+            AVG(score_rn) * 100.0 AS score_rn_pct,
+            AVG(revenu_median) AS revenu_median,
+            AVG(taux_chomage) AS taux_chomage,
+            COUNT(*) AS n_communes
+        FROM dataset_ml
+        WHERE annee = %s
+        GROUP BY code_departement
+    """
+
+    try:
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
+        cursor.execute(query, (year,))
+        rows = cursor.fetchall()
+        cursor.close()
+        connection.close()
+
+        if not rows:
+            return jsonify({"status": "error", "message": "Aucune donnée carte pour l'année demandée"}), 404
+
+        by_departement = {}
+        for dep, score_rn_pct, revenu_median, taux_chomage, n_communes in rows:
+            dep_code = str(dep).zfill(2)
+            by_departement[dep_code] = {
+                "score_rn_pct": None if score_rn_pct is None else float(score_rn_pct),
+                "revenu_median": None if revenu_median is None else float(revenu_median),
+                "taux_chomage": None if taux_chomage is None else float(taux_chomage),
+                "n_communes": int(n_communes),
+            }
+
+        values_score = [v["score_rn_pct"] for v in by_departement.values() if v["score_rn_pct"] is not None]
+        values_revenu = [v["revenu_median"] for v in by_departement.values() if v["revenu_median"] is not None]
+        values_chomage = [v["taux_chomage"] for v in by_departement.values() if v["taux_chomage"] is not None]
+
+        payload = {
+            "status": "ok",
+            "year": year,
+            "by_departement": by_departement,
+            "min_max": {
+                "score_rn_pct": {
+                    "min": None if not values_score else float(min(values_score)),
+                    "max": None if not values_score else float(max(values_score)),
+                },
+                "revenu_median": {
+                    "min": None if not values_revenu else float(min(values_revenu)),
+                    "max": None if not values_revenu else float(max(values_revenu)),
+                },
+                "taux_chomage": {
+                    "min": None if not values_chomage else float(min(values_chomage)),
+                    "max": None if not values_chomage else float(max(values_chomage)),
+                },
+            },
+        }
+        return jsonify(payload), 200
+    except mysql.connector.Error as exc:
+        return jsonify({"status": "error", "message": f"Erreur DB: {exc.msg}"}), 500
+
+
+@app.route("/geo/departements.geojson", methods=["GET"])
+def geo_departements_geojson():
+    """
+    Proxy GeoJSON départements (same-origin) pour éviter les soucis CORS côté navigateur.
+    Source: france-geojson (référence courante).
+    """
+    global _DEPARTEMENTS_GEOJSON_CACHE
+    if _DEPARTEMENTS_GEOJSON_CACHE is not None:
+        return app.response_class(
+            response=_DEPARTEMENTS_GEOJSON_CACHE,
+            status=200,
+            mimetype="application/geo+json",
+        )
+
+    url = "https://france-geojson.gregoiredavid.fr/repo/departements.geojson"
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            raw_bytes = resp.read()
+        # Valide que c'est bien du JSON (et normalise en string)
+        obj = json.loads(raw_bytes.decode("utf-8"))
+        _DEPARTEMENTS_GEOJSON_CACHE = json.dumps(obj, ensure_ascii=False)
+        return app.response_class(
+            response=_DEPARTEMENTS_GEOJSON_CACHE,
+            status=200,
+            mimetype="application/geo+json",
+        )
+    except Exception as exc:
+        return jsonify({"status": "error", "message": f"GeoJSON départements indisponible: {exc}"}), 500
 
 
 if __name__ == "__main__":

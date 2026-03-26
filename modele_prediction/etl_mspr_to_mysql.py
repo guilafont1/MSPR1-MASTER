@@ -19,6 +19,7 @@ from typing import Dict, Tuple
 
 import mysql.connector
 import pandas as pd
+from dotenv import load_dotenv
 
 
 def get_repo_root() -> Path:
@@ -26,15 +27,25 @@ def get_repo_root() -> Path:
 
 
 def get_db_config() -> Dict:
+    # Charge automatiquement `.env` à la racine repo (utile en local).
+    # (En Docker, les variables sont déjà injectées via --env-file / compose.)
+    repo_root = get_repo_root()
+    env_path = repo_root / ".env"
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path)
+    else:
+        # fallback: tente quand même le comportement par défaut (recherche .env dans cwd)
+        load_dotenv()
+
     # Les variables DB_* viennent soit de l'environnement docker-compose,
     # soit du fichier `.env` exporté dans le shell.
     return {
-        "host": os.environ.get("DB_HOST"),
+        "host": os.environ.get("DB_HOST") or os.environ.get("MYSQL_HOST"),
         "port": int(os.environ.get("DB_PORT", "3306")),
-        "user": os.environ.get("DB_USER"),
-        "password": os.environ.get("DB_PASSWORD"),
-        "database": os.environ.get("DB_NAME"),
-        "ssl_ca": os.environ.get("DB_SSL_CA_PATH"),
+        "user": os.environ.get("DB_USER") or os.environ.get("MYSQL_USER"),
+        "password": os.environ.get("DB_PASSWORD") or os.environ.get("MYSQL_PASSWORD"),
+        "database": os.environ.get("DB_NAME") or os.environ.get("DB_DATABASE"),
+        "ssl_ca": os.environ.get("DB_SSL_CA_PATH") or os.environ.get("MYSQL_SSL_CA"),
         "connection_timeout": int(os.environ.get("DB_CONNECT_TIMEOUT", "10")),
     }
 
@@ -256,6 +267,27 @@ def build_dataset_ml_from_files(data_dir: Path) -> Tuple[pd.DataFrame, pd.DataFr
     df_global["Code de la commune"] = (
         df_global["Code de la commune"].astype(str).str.extract(r"(\d+)")[0].str.zfill(3)
     )
+
+    # Cas particuliers : certaines sources électorales sont au niveau arrondissement
+    # (Paris 75101-75120, Lyon 69381-69389, Marseille 13201-13216) alors que
+    # les sources INSEE revenu/population sont au niveau "commune" (75056/69123/13055).
+    # Sans ce mapping, les merges revenu/population échouent puis les lignes sont dropna,
+    # ce qui peut expliquer l'absence totale de données pour le département 75.
+    code_dep = df_global["Code du département"].astype(str)
+    code_com_num = pd.to_numeric(df_global["Code de la commune"], errors="coerce")
+
+    # Paris arrondissements -> commune Paris (INSEE: 75056)
+    mask_paris = (code_dep == "75") & (code_com_num >= 101) & (code_com_num <= 120)
+    df_global.loc[mask_paris, "Code de la commune"] = "056"
+
+    # Lyon arrondissements -> commune Lyon (INSEE: 69123)
+    mask_lyon = (code_dep == "69") & (code_com_num >= 381) & (code_com_num <= 389)
+    df_global.loc[mask_lyon, "Code de la commune"] = "123"
+
+    # Marseille arrondissements -> commune Marseille (INSEE: 13055)
+    mask_marseille = (code_dep == "13") & (code_com_num >= 201) & (code_com_num <= 216)
+    df_global.loc[mask_marseille, "Code de la commune"] = "055"
+
     df_global["CODGEO"] = df_global["Code du département"] + df_global["Code de la commune"]
 
     df = df_global.merge(df_pop[["CODGEO", "PTOT"]], on="CODGEO", how="left")
