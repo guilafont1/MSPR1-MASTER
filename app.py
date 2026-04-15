@@ -702,7 +702,7 @@ def kpi_top_evolution():
             INNER JOIN dim_commune d
               ON d.codgeo = dm.codgeo
             WHERE dm.annee IN (2017, 2022)
-            GROUP BY d.nom_commune
+            GROUP BY dm.codgeo, d.nom_commune
             ORDER BY evolution DESC
             LIMIT 10
             """

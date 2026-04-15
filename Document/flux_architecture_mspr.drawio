@@ -1,0 +1,463 @@
+<mxfile host="app.diagrams.net" version="24.0.0" type="device"><!-- VERSION SIMPLIFIÉE POUR SOUTENANCE -->
+  <diagram id="mspr-flux-etl-bi-ml" name="Flux ETL-BI-ML — Electio-Analytics">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="2339" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!--  COUCHE 0 — Sources de données brutes                  -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="c0" value="COUCHE 0 — Sources de données brutes (data_initial/)"
+          style="swimlane;startSize=35;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;rounded=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="20" y="20" width="1614" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s1" value="📄 Résultats électoraux&lt;br/&gt;présidentiels (CSV)&lt;br/&gt;&lt;b&gt;2002 / 2007 / 2012 / 2017 / 2022&lt;/b&gt;&lt;br/&gt;&lt;i&gt;data-presidentielle/&lt;/i&gt;"
+          style="shape=document;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+          vertex="1" parent="c0">
+          <mxGeometry x="50" y="45" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s2" value="📄 Population communale&lt;br/&gt;(CSV — INSEE)&lt;br/&gt;&lt;i&gt;donnees_communes.csv&lt;/i&gt;"
+          style="shape=document;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+          vertex="1" parent="c0">
+          <mxGeometry x="360" y="45" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s3" value="📄 Revenu médian communal&lt;br/&gt;(CSV — INSEE 2021)&lt;br/&gt;&lt;i&gt;revenu_des_francais_a_la_commune_2021.csv&lt;/i&gt;"
+          style="shape=document;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+          vertex="1" parent="c0">
+          <mxGeometry x="670" y="45" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s4" value="📄 Taux de chômage régional&lt;br/&gt;(XLSX)&lt;br/&gt;&lt;i&gt;Taux-de-chomage/&lt;/i&gt;"
+          style="shape=document;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+          vertex="1" parent="c0">
+          <mxGeometry x="1000" y="45" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s5" value="🌐 data.gouv.fr&lt;br/&gt;(source publique open data)&lt;br/&gt;&lt;i&gt;Licence Ouverte / ODbL&lt;/i&gt;"
+          style="shape=mxgraph.cisco.sites.generic_building;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+          vertex="1" parent="c0">
+          <mxGeometry x="1310" y="45" width="240" height="80" as="geometry" />
+        </mxCell>
+
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!--  COUCHE 1 — ETL Python                                 -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="c1" value="COUCHE 1 — ETL Python : Extract → Transform → Load  (etl_mspr_to_mysql.py)"
+          style="swimlane;startSize=35;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=13;rounded=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="20" y="215" width="1614" height="175" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" value="🔽 EXTRACT&lt;br/&gt;pandas.read_csv()&lt;br/&gt;pandas.read_excel()&lt;br/&gt;Chargement des fichiers bruts"
+          style="rounded=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;"
+          vertex="1" parent="c1">
+          <mxGeometry x="50" y="50" width="250" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e2" value="🔄 TRANSFORM&lt;br/&gt;· Normalisation codes (zfill, extraction digits)&lt;br/&gt;· Gestion arrondissements Paris/Lyon/Marseille&lt;br/&gt;· Calcul score_rn = voix ÷ exprimés&lt;br/&gt;· Cast numériques (pd.to_numeric)&lt;br/&gt;· Suppression lignes incomplètes (dropna)&lt;br/&gt;· Contrôle NOT NULL avant chargement"
+          style="rounded=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;"
+          vertex="1" parent="c1">
+          <mxGeometry x="370" y="40" width="330" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e3" value="🔼 LOAD&lt;br/&gt;mysql.connector (INSERT / UPSERT)&lt;br/&gt;· → staging_*&lt;br/&gt;· → dim_commune&lt;br/&gt;· → fact_*&lt;br/&gt;· → dataset_ml"
+          style="rounded=1;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;"
+          vertex="1" parent="c1">
+          <mxGeometry x="770" y="45" width="250" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e4" value="🔒 Config sécurisée&lt;br/&gt;Variables d'env (.env / Docker)&lt;br/&gt;DB_HOST, DB_USER, DB_PASSWORD&lt;br/&gt;SSL_CA optionnel (aiven-ca.pem)"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f9dbc0;strokeColor=#d6b656;fontSize=11;"
+          vertex="1" parent="c1">
+          <mxGeometry x="1090" y="45" width="250" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!--  COUCHE 2 — Staging MySQL                              -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="c2" value="COUCHE 2 — Staging MySQL (zone d'atterrissage — schéma db/schema_mysql.sql)"
+          style="swimlane;startSize=35;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=13;rounded=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="20" y="435" width="1614" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="st1" value="staging_elections&lt;br/&gt;code_dept, code_commune&lt;br/&gt;annee, tour, candidat&lt;br/&gt;voix, exprimes"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;"
+          vertex="1" parent="c2">
+          <mxGeometry x="50" y="45" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="st2" value="staging_population&lt;br/&gt;codgeo&lt;br/&gt;population"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;"
+          vertex="1" parent="c2">
+          <mxGeometry x="330" y="45" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="st3" value="staging_revenu&lt;br/&gt;codgeo&lt;br/&gt;revenu_median"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;"
+          vertex="1" parent="c2">
+          <mxGeometry x="590" y="45" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="st4" value="staging_chomage&lt;br/&gt;region&lt;br/&gt;taux_chomage"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;"
+          vertex="1" parent="c2">
+          <mxGeometry x="850" y="45" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="st5" value="staging_communes&lt;br/&gt;codgeo, code_dept&lt;br/&gt;nom_commune, region"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;"
+          vertex="1" parent="c2">
+          <mxGeometry x="1110" y="45" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!--  COUCHE 3 — DWH MySQL (modèle en étoile)               -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="c3" value="COUCHE 3 — DWH MySQL : Modèle décisionnel en ÉTOILE (db/schema_mysql.sql)"
+          style="swimlane;startSize=35;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;rounded=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="20" y="630" width="1614" height="165" as="geometry" />
+        </mxCell>
+
+        <!-- Dimension centrale -->
+        <mxCell id="dim1" value="⭐ dim_commune&lt;br/&gt;PK: CODGEO (VARCHAR 5)&lt;br/&gt;code_dept | code_commune&lt;br/&gt;nom_commune | region&lt;br/&gt;[dimension centrale]"
+          style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=11;strokeWidth=3;"
+          vertex="1" parent="c3">
+          <mxGeometry x="620" y="40" width="260" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f1" value="fact_election&lt;br/&gt;FK: codgeo | annee&lt;br/&gt;voix | exprimes&lt;br/&gt;score_rn (calculé)"
+          style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+          vertex="1" parent="c3">
+          <mxGeometry x="50" y="50" width="200" height="85" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f2" value="fact_population&lt;br/&gt;FK: codgeo&lt;br/&gt;population (INT)"
+          style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+          vertex="1" parent="c3">
+          <mxGeometry x="320" y="55" width="200" height="75" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f3" value="fact_revenu&lt;br/&gt;FK: codgeo&lt;br/&gt;revenu_median (FLOAT)"
+          style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+          vertex="1" parent="c3">
+          <mxGeometry x="960" y="55" width="200" height="75" as="geometry" />
+        </mxCell>
+
+        <mxCell id="f4" value="fact_chomage&lt;br/&gt;region (VARCHAR)&lt;br/&gt;taux_chomage (FLOAT)&lt;br/&gt;[granularité région]"
+          style="rounded=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;"
+          vertex="1" parent="c3">
+          <mxGeometry x="1230" y="50" width="200" height="85" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!--  COUCHE 4 — Dataset ML (table finale)                  -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="c4" value="COUCHE 4 — Dataset ML : table finale historisée (dataset_ml)"
+          style="swimlane;startSize=35;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=13;rounded=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="20" y="840" width="1614" height="145" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dml" value="📊 dataset_ml&lt;br/&gt;&lt;b&gt;PRIMARY KEY (codgeo, annee)&lt;/b&gt;&lt;br/&gt;score_rn | revenu_median | population | taux_chomage&lt;br/&gt;~ 35 229 communes × 5 années électorales (2002/2007/2012/2017/2022)&lt;br/&gt;Contraintes NOT NULL sur toutes les colonnes • INDEX sur codgeo et annee"
+          style="rounded=1;whiteSpace=wrap;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=12;strokeWidth=2;"
+          vertex="1" parent="c4">
+          <mxGeometry x="350" y="35" width="900" height="85" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!--  COUCHE 5 — Entraînement ML                            -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="c5" value="COUCHE 5 — Entraînement &amp; Évaluation des modèles ML  (modele_prediction/mspr1_master.py)"
+          style="swimlane;startSize=35;fillColor=#f0e6ff;strokeColor=#7a4fa3;fontStyle=1;fontSize=13;rounded=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="20" y="1030" width="1614" height="190" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ml_prep" value="🔀 Préparation des données&lt;br/&gt;· Pivot wide (codgeo × années)&lt;br/&gt;· Calcul delta (score_2017 − score_2012)&lt;br/&gt;· Train / Test split (sklearn)"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f0e6ff;strokeColor=#7a4fa3;fontSize=11;"
+          vertex="1" parent="c5">
+          <mxGeometry x="50" y="50" width="280" height="110" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ml1" value="📉 Régression Linéaire&lt;br/&gt;(dashboard &amp; KPIs)&lt;br/&gt;Features : score_2017 + delta&lt;br/&gt;LinearRegression (sklearn)&lt;br/&gt;&lt;i&gt;linear_regression_model.joblib&lt;/i&gt;"
+          style="ellipse;whiteSpace=wrap;fillColor=#f0e6ff;strokeColor=#7a4fa3;fontSize=11;"
+          vertex="1" parent="c5">
+          <mxGeometry x="390" y="40" width="300" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ml2" value="📈 Ridge Regression multi-années&lt;br/&gt;[modèle de référence — projection 2027]&lt;br/&gt;Historique : 2002 / 2007 / 2012 / 2017 → 2022&lt;br/&gt;Validation croisée (CV 5-fold)&lt;br/&gt;&lt;b&gt;R²=0.611 | RMSE=0.059 | MAE=0.042&lt;/b&gt;&lt;br/&gt;n_samples = 35 229 | R²_CV = 0.620 ± 0.009"
+          style="ellipse;whiteSpace=wrap;fillColor=#f0e6ff;strokeColor=#7a4fa3;fontStyle=1;fontSize=11;strokeWidth=2;"
+          vertex="1" parent="c5">
+          <mxGeometry x="740" y="30" width="380" height="140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ml3" value="💾 Export artefacts (.joblib)&lt;br/&gt;ridge_multiyear_2027.joblib&lt;br/&gt;ridge_multiyear_2027_metadata.joblib&lt;br/&gt;&lt;b&gt;pred_2027_national = 21.67 %&lt;/b&gt;"
+          style="shape=cylinder3;whiteSpace=wrap;fillColor=#f0e6ff;strokeColor=#7a4fa3;fontSize=11;strokeWidth=2;"
+          vertex="1" parent="c5">
+          <mxGeometry x="1190" y="40" width="300" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!--  COUCHE 6 — API Flask                                  -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="c6" value="COUCHE 6 — API REST Flask  (app.py)"
+          style="swimlane;startSize=35;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=13;rounded=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="20" y="1270" width="1614" height="210" as="geometry" />
+        </mxCell>
+
+        <mxCell id="api1" value="📊 Tableau de bord&lt;br/&gt;/api/kpi_dashboard_overview&lt;br/&gt;/api/kpi_score_mean&lt;br/&gt;/api/kpi_top_evolution&lt;br/&gt;/api/kpi_correlations_2022"
+          style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;"
+          vertex="1" parent="c6">
+          <mxGeometry x="50" y="50" width="280" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="api2" value="🗺️ Analyse Socio-économique&lt;br/&gt;/api/socioeco_map?year=2022&lt;br/&gt;/api/socioeco_insights&lt;br/&gt;&amp;year=2022&amp;max_points=900&lt;br/&gt;(cartes dept + scatter Pearson)"
+          style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;"
+          vertex="1" parent="c6">
+          <mxGeometry x="390" y="50" width="280" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="api3" value="🔮 Moteur prédictif&lt;br/&gt;/api/prediction_2027_nationale&lt;br/&gt;← lit ridge_metadata.joblib&lt;br/&gt;→ R², RMSE, MAE,&lt;br/&gt;pred_2027, n_samples"
+          style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=11;strokeWidth=2;"
+          vertex="1" parent="c6">
+          <mxGeometry x="730" y="50" width="280" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="api4" value="✅ Qualité des données&lt;br/&gt;/health/db&lt;br/&gt;/api/data_health&lt;br/&gt;(complétude, couverture tempo-&lt;br/&gt;relle, traçabilité, exactitude)"
+          style="rounded=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;"
+          vertex="1" parent="c6">
+          <mxGeometry x="1070" y="50" width="280" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="api_note" value="🔒 Config via .env (jamais commitée) | SSL/TLS CA optionnel (certs/aiven-ca.pem) | Déployé via Docker (docker-compose.yml)"
+          style="text;fontStyle=2;fontSize=11;align=center;fillColor=none;"
+          vertex="1" parent="c6">
+          <mxGeometry x="50" y="180" width="1430" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!--  COUCHE 7 — Dashboard Frontend                         -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="c7" value="COUCHE 7 — Dashboard Frontend (templates/index.html + static/css/style.css)"
+          style="swimlane;startSize=35;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=13;rounded=1;"
+          vertex="1" parent="1">
+          <mxGeometry x="20" y="1530" width="1614" height="165" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ui1" value="🗺️ Vue Carte France&lt;br/&gt;KPIs nationaux&lt;br/&gt;score moyen 2022"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;"
+          vertex="1" parent="c7">
+          <mxGeometry x="50" y="50" width="210" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ui2" value="📈 Courbe temporelle&lt;br/&gt;score RN moyen&lt;br/&gt;2002 → 2022"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;"
+          vertex="1" parent="c7">
+          <mxGeometry x="310" y="50" width="210" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ui3" value="🏆 Top progressions&lt;br/&gt;communes 2017→2022&lt;br/&gt;(classement)"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;"
+          vertex="1" parent="c7">
+          <mxGeometry x="570" y="50" width="210" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ui4" value="🗺️ Cartes choroplèthes&lt;br/&gt;par département&lt;br/&gt;score / chômage / revenu"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;"
+          vertex="1" parent="c7">
+          <mxGeometry x="830" y="50" width="210" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ui5" value="🔮 Moteur prédictif&lt;br/&gt;Projection RN 2027 :&lt;br/&gt;&lt;b&gt;21.67 % | R²=0.61&lt;/b&gt;"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=11;strokeWidth=2;"
+          vertex="1" parent="c7">
+          <mxGeometry x="1090" y="50" width="210" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ui6" value="🔍 Analyse Socio-éco&lt;br/&gt;Scatter plots + corrélations&lt;br/&gt;Pearson (revenu/pop/chômage)"
+          style="rounded=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;"
+          vertex="1" parent="c7">
+          <mxGeometry x="1350" y="50" width="210" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <!--  ARROWS — Sources → ETL                                -->
+        <!-- ═══════════════════════════════════════════════════════ -->
+        <mxCell id="a_s1_e1" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.2;entryY=0;strokeColor=#6c8ebf;strokeWidth=2;"
+          edge="1" source="s1" target="e1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_s2_e1" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.3;entryY=0;strokeColor=#6c8ebf;strokeWidth=2;"
+          edge="1" source="s2" target="e1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_s3_e1" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#6c8ebf;strokeWidth=2;"
+          edge="1" source="s3" target="e1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_s4_e1" style="edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;entryX=0.7;entryY=0;strokeColor=#6c8ebf;strokeWidth=2;"
+          edge="1" source="s4" target="e1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ETL: E → T → L -->
+        <mxCell id="a_e1_e2" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d6b656;strokeWidth=2;"
+          edge="1" source="e1" target="e2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_e2_e3" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d6b656;strokeWidth=2;"
+          edge="1" source="e2" target="e3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ARROWS — ETL Load → Staging -->
+        <mxCell id="a_e3_st1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;strokeWidth=2;"
+          edge="1" source="e3" target="st1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_e3_st2" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;strokeWidth=2;"
+          edge="1" source="e3" target="st2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_e3_st3" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;strokeWidth=2;"
+          edge="1" source="e3" target="st3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_e3_st4" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;strokeWidth=2;"
+          edge="1" source="e3" target="st4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_e3_st5" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#b85450;strokeWidth=2;"
+          edge="1" source="e3" target="st5" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ARROWS — Staging → DWH -->
+        <mxCell id="a_st1_f1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#82b366;strokeWidth=2;"
+          edge="1" source="st1" target="f1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_st2_f2" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#82b366;strokeWidth=2;"
+          edge="1" source="st2" target="f2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_st3_f3" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#82b366;strokeWidth=2;"
+          edge="1" source="st3" target="f3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_st4_f4" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#82b366;strokeWidth=2;"
+          edge="1" source="st4" target="f4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_st5_dim" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#82b366;strokeWidth=2;"
+          edge="1" source="st5" target="dim1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- FK : facts → dim_commune (tirets) -->
+        <mxCell id="a_f1_dim" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#82b366;endArrow=ERmany;startArrow=ERone;strokeWidth=1;" value="FK"
+          edge="1" source="f1" target="dim1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_f2_dim" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#82b366;endArrow=ERmany;startArrow=ERone;strokeWidth=1;" value="FK"
+          edge="1" source="f2" target="dim1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_f3_dim" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#82b366;endArrow=ERmany;startArrow=ERone;strokeWidth=1;" value="FK"
+          edge="1" source="f3" target="dim1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ARROWS — DWH → dataset_ml -->
+        <mxCell id="a_f1_dml" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#9673a6;strokeWidth=2;" value="JOIN"
+          edge="1" source="f1" target="dml" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_f2_dml" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#9673a6;strokeWidth=2;" value="JOIN"
+          edge="1" source="f2" target="dml" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_f3_dml" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#9673a6;strokeWidth=2;" value="JOIN"
+          edge="1" source="f3" target="dml" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_f4_dml" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#9673a6;strokeWidth=2;" value="JOIN région"
+          edge="1" source="f4" target="dml" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ARROWS — dataset_ml → ML -->
+        <mxCell id="a_dml_mlprep" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7a4fa3;strokeWidth=2;"
+          edge="1" source="dml" target="ml_prep" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_prep_ml1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7a4fa3;strokeWidth=2;"
+          edge="1" source="ml_prep" target="ml1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_prep_ml2" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7a4fa3;strokeWidth=2;"
+          edge="1" source="ml_prep" target="ml2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_ml2_ml3" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7a4fa3;strokeWidth=2;" value="joblib.dump()"
+          edge="1" source="ml2" target="ml3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ARROWS — dataset_ml + joblib → API Flask -->
+        <mxCell id="a_dml_api1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d79b00;strokeWidth=2;" value="SQL query"
+          edge="1" source="dml" target="api1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_dml_api2" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d79b00;strokeWidth=2;" value="SQL query"
+          edge="1" source="dml" target="api2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_ml3_api3" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d79b00;strokeWidth=2;" value="joblib.load()"
+          edge="1" source="ml3" target="api3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_dml_api4" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#d79b00;strokeWidth=2;" value="DQ checks"
+          edge="1" source="dml" target="api4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ARROWS — API → Dashboard (HTTP/JSON) -->
+        <mxCell id="a_api1_ui1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#666666;strokeWidth=2;" value="JSON"
+          edge="1" source="api1" target="ui1" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_api1_ui2" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#666666;strokeWidth=2;" value="JSON"
+          edge="1" source="api1" target="ui2" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_api1_ui3" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#666666;strokeWidth=2;" value="JSON"
+          edge="1" source="api1" target="ui3" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_api2_ui4" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#666666;strokeWidth=2;" value="JSON"
+          edge="1" source="api2" target="ui4" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_api3_ui5" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#666666;strokeWidth=2;" value="JSON"
+          edge="1" source="api3" target="ui5" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a_api2_ui6" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#666666;strokeWidth=2;" value="JSON"
+          edge="1" source="api2" target="ui6" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
